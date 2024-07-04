@@ -294,13 +294,23 @@ LIBS = -lc -lm -lnosys  \
 -l:libCMSISDSP.a
 LIBDIR =  \
 -LMiddlewares/ST/ARM/DSP/Lib
-# 生成更详细的中间代码转储文件,可能包含更多的地址信息
-# CFLAGS += -g -fdump-rtl-expand -fdump-tree-all
-# 生成map文件
-# --cref: 在map文件中包含交叉引用信息
-# --print-section-info: 在map文件中输出每个目标文件的各个节的详细信息,包括节名称、大小、内存偏移等
-# --gc-sections -flto -Wl:用于优化链接过程
-LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections -flto -Wl,--print-memory-usage
+
+#------------------------------------------------------------------------------
+#  生成map文件
+#
+#  $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) 为LINKER提供目标 MCU 的信息
+#  -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref: 生成内存映射文件
+#  -Wl,--gc-sections -flto:用于优化链接过程
+#  -Wl,--print-memory-usage:输出程序的内存占用情况
+#
+#  
+#------------------------------------------------------------------------------
+LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) \
+		  -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref \
+		  -Wl,--gc-sections \
+		  -flto \
+		  -Wl,--print-memory-usage \
+
 
 # default action: build all
 all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
