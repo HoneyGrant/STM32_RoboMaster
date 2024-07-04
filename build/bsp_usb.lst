@@ -1,0 +1,154 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"bsp_usb.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.USBInit,"ax",%progbits
+  20              		.align	1
+  21              		.global	USBInit
+  22              		.syntax unified
+  23              		.thumb
+  24              		.thumb_func
+  26              	USBInit:
+  27              	.LFB239:
+  28              		.file 1 "bsp/usb/bsp_usb.c"
+   1:bsp/usb/bsp_usb.c **** /**
+   2:bsp/usb/bsp_usb.c ****  * @file bsp_usb.c
+   3:bsp/usb/bsp_usb.c ****  * @author your name (you@domain.com)
+   4:bsp/usb/bsp_usb.c ****  * @brief usb是单例bsp,因此不保存实例
+   5:bsp/usb/bsp_usb.c ****  * @version 0.1
+   6:bsp/usb/bsp_usb.c ****  * @date 2023-02-09
+   7:bsp/usb/bsp_usb.c ****  *
+   8:bsp/usb/bsp_usb.c ****  * @copyright Copyright (c) 2023
+   9:bsp/usb/bsp_usb.c ****  *
+  10:bsp/usb/bsp_usb.c ****  */
+  11:bsp/usb/bsp_usb.c **** 
+  12:bsp/usb/bsp_usb.c **** #include "bsp_usb.h"
+  13:bsp/usb/bsp_usb.c **** #include "bsp_log.h"
+  14:bsp/usb/bsp_usb.c **** #include "bsp_dwt.h"
+  15:bsp/usb/bsp_usb.c **** 
+  16:bsp/usb/bsp_usb.c **** static uint8_t *bsp_usb_rx_buffer; // 接收到的数据会被放在这里,buffer size为2048
+  17:bsp/usb/bsp_usb.c **** // 注意usb单个数据包(Full speed模式下)最大为64byte,超出可能会出现丢包情况
+  18:bsp/usb/bsp_usb.c **** 
+  19:bsp/usb/bsp_usb.c **** uint8_t *USBInit(USB_Init_Config_s usb_conf)
+  20:bsp/usb/bsp_usb.c **** {
+  29              		.loc 1 20 1 view -0
+  30              		.cfi_startproc
+  31              		@ args = 0, pretend = 0, frame = 8
+  32              		@ frame_needed = 0, uses_anonymous_args = 0
+  33 0000 00B5     		push	{lr}
+  34              	.LCFI0:
+  35              		.cfi_def_cfa_offset 4
+  36              		.cfi_offset 14, -4
+  37 0002 83B0     		sub	sp, sp, #12
+  38              	.LCFI1:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s 			page 2
+
+
+  39              		.cfi_def_cfa_offset 16
+  40 0004 02AB     		add	r3, sp, #8
+  41 0006 03E90300 		stmdb	r3, {r0, r1}
+  21:bsp/usb/bsp_usb.c ****     // usb的软件复位(模拟拔插)在usbd_conf.c中的HAL_PCD_MspInit()中
+  22:bsp/usb/bsp_usb.c ****     bsp_usb_rx_buffer = CDCInitRxbufferNcallback(usb_conf.tx_cbk, usb_conf.rx_cbk); // 获取接收
+  42              		.loc 1 22 5 view .LVU1
+  43              		.loc 1 22 25 is_stmt 0 view .LVU2
+  44 000a FFF7FEFF 		bl	CDCInitRxbufferNcallback
+  45              	.LVL0:
+  46              		.loc 1 22 23 view .LVU3
+  47 000e 024B     		ldr	r3, .L3
+  48 0010 1860     		str	r0, [r3]
+  23:bsp/usb/bsp_usb.c ****     // usb的接收回调函数会在这里被设置,并将数据保存在bsp_usb_rx_buffer中
+  24:bsp/usb/bsp_usb.c ****     LOGINFO("USB init success");
+  49              		.loc 1 24 32 is_stmt 1 view .LVU4
+  25:bsp/usb/bsp_usb.c ****     return bsp_usb_rx_buffer;
+  50              		.loc 1 25 5 view .LVU5
+  26:bsp/usb/bsp_usb.c **** }
+  51              		.loc 1 26 1 is_stmt 0 view .LVU6
+  52 0012 03B0     		add	sp, sp, #12
+  53              	.LCFI2:
+  54              		.cfi_def_cfa_offset 4
+  55              		@ sp needed
+  56 0014 5DF804FB 		ldr	pc, [sp], #4
+  57              	.L4:
+  58              		.align	2
+  59              	.L3:
+  60 0018 00000000 		.word	.LANCHOR0
+  61              		.cfi_endproc
+  62              	.LFE239:
+  64              		.section	.text.USBTransmit,"ax",%progbits
+  65              		.align	1
+  66              		.global	USBTransmit
+  67              		.syntax unified
+  68              		.thumb
+  69              		.thumb_func
+  71              	USBTransmit:
+  72              	.LVL1:
+  73              	.LFB240:
+  27:bsp/usb/bsp_usb.c **** 
+  28:bsp/usb/bsp_usb.c **** void USBTransmit(uint8_t *buffer, uint16_t len)
+  29:bsp/usb/bsp_usb.c **** {
+  74              		.loc 1 29 1 is_stmt 1 view -0
+  75              		.cfi_startproc
+  76              		@ args = 0, pretend = 0, frame = 0
+  77              		@ frame_needed = 0, uses_anonymous_args = 0
+  78              		.loc 1 29 1 is_stmt 0 view .LVU8
+  79 0000 08B5     		push	{r3, lr}
+  80              	.LCFI3:
+  81              		.cfi_def_cfa_offset 8
+  82              		.cfi_offset 3, -8
+  83              		.cfi_offset 14, -4
+  30:bsp/usb/bsp_usb.c ****     CDC_Transmit_FS(buffer, len); // 发送
+  84              		.loc 1 30 5 is_stmt 1 view .LVU9
+  85 0002 FFF7FEFF 		bl	CDC_Transmit_FS
+  86              	.LVL2:
+  31:bsp/usb/bsp_usb.c **** }
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s 			page 3
+
+
+  87              		.loc 1 31 1 is_stmt 0 view .LVU10
+  88 0006 08BD     		pop	{r3, pc}
+  89              		.cfi_endproc
+  90              	.LFE240:
+  92              		.section	.bss.bsp_usb_rx_buffer,"aw",%nobits
+  93              		.align	2
+  94              		.set	.LANCHOR0,. + 0
+  97              	bsp_usb_rx_buffer:
+  98 0000 00000000 		.space	4
+  99              		.text
+ 100              	.Letext0:
+ 101              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 102              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ 103              		.file 4 "Inc/usbd_cdc_if.h"
+ 104              		.file 5 "bsp/usb/bsp_usb.h"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s 			page 4
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 bsp_usb.c
+C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s:20     .text.USBInit:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s:26     .text.USBInit:00000000 USBInit
+C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s:60     .text.USBInit:00000018 $d
+C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s:65     .text.USBTransmit:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s:71     .text.USBTransmit:00000000 USBTransmit
+C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s:93     .bss.bsp_usb_rx_buffer:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cckkS1Uh.s:97     .bss.bsp_usb_rx_buffer:00000000 bsp_usb_rx_buffer
+
+UNDEFINED SYMBOLS
+CDCInitRxbufferNcallback
+CDC_Transmit_FS

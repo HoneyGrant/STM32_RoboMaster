@@ -1,0 +1,908 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"servo_motor.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.ServoInit,"ax",%progbits
+  20              		.align	1
+  21              		.global	ServoInit
+  22              		.syntax unified
+  23              		.thumb
+  24              		.thumb_func
+  26              	ServoInit:
+  27              	.LVL0:
+  28              	.LFB235:
+  29              		.file 1 "modules/motor/servo_motor/servo_motor.c"
+   1:modules/motor/servo_motor/servo_motor.c **** #include "servo_motor.h"
+   2:modules/motor/servo_motor/servo_motor.c **** #include "stdlib.h"
+   3:modules/motor/servo_motor/servo_motor.c **** #include "memory.h"
+   4:modules/motor/servo_motor/servo_motor.c **** 
+   5:modules/motor/servo_motor/servo_motor.c **** extern TIM_HandleTypeDef htim1;
+   6:modules/motor/servo_motor/servo_motor.c **** /*第二版*/
+   7:modules/motor/servo_motor/servo_motor.c **** static ServoInstance *servo_motor_instance[SERVO_MOTOR_CNT] = {NULL};
+   8:modules/motor/servo_motor/servo_motor.c **** static int16_t compare_value[SERVO_MOTOR_CNT] = {0};
+   9:modules/motor/servo_motor/servo_motor.c **** static uint8_t servo_idx = 0; // register servo_idx,是该文件的全局舵机索引,在注册时�
+  10:modules/motor/servo_motor/servo_motor.c **** 
+  11:modules/motor/servo_motor/servo_motor.c **** // 通过此函数注册一个舵机
+  12:modules/motor/servo_motor/servo_motor.c **** ServoInstance *ServoInit(Servo_Init_Config_s *Servo_Init_Config)
+  13:modules/motor/servo_motor/servo_motor.c **** {
+  30              		.loc 1 13 1 view -0
+  31              		.cfi_startproc
+  32              		@ args = 0, pretend = 0, frame = 0
+  33              		@ frame_needed = 0, uses_anonymous_args = 0
+  34              		.loc 1 13 1 is_stmt 0 view .LVU1
+  35 0000 38B5     		push	{r3, r4, r5, lr}
+  36              	.LCFI0:
+  37              		.cfi_def_cfa_offset 16
+  38              		.cfi_offset 3, -16
+  39              		.cfi_offset 4, -12
+  40              		.cfi_offset 5, -8
+  41              		.cfi_offset 14, -4
+  42 0002 0546     		mov	r5, r0
+  14:modules/motor/servo_motor/servo_motor.c ****     ServoInstance *servo = (ServoInstance *)malloc(sizeof(ServoInstance));
+  43              		.loc 1 14 5 is_stmt 1 view .LVU2
+  44              		.loc 1 14 45 is_stmt 0 view .LVU3
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 2
+
+
+  45 0004 1420     		movs	r0, #20
+  46              	.LVL1:
+  47              		.loc 1 14 45 view .LVU4
+  48 0006 FFF7FEFF 		bl	malloc
+  49              	.LVL2:
+  50 000a 0446     		mov	r4, r0
+  51              	.LVL3:
+  15:modules/motor/servo_motor/servo_motor.c ****     memset(servo, 0, sizeof(ServoInstance));
+  52              		.loc 1 15 5 is_stmt 1 view .LVU5
+  53 000c 0023     		movs	r3, #0
+  54 000e 0360     		str	r3, [r0]	@ unaligned
+  55 0010 4360     		str	r3, [r0, #4]	@ unaligned
+  56 0012 8360     		str	r3, [r0, #8]	@ unaligned
+  57 0014 C360     		str	r3, [r0, #12]	@ unaligned
+  58 0016 0361     		str	r3, [r0, #16]	@ unaligned
+  16:modules/motor/servo_motor/servo_motor.c **** 
+  17:modules/motor/servo_motor/servo_motor.c ****     servo->Servo_type = Servo_Init_Config->Servo_type;
+  59              		.loc 1 17 5 view .LVU6
+  60              		.loc 1 17 42 is_stmt 0 view .LVU7
+  61 0018 2B78     		ldrb	r3, [r5]	@ zero_extendqisi2
+  62              		.loc 1 17 23 view .LVU8
+  63 001a 8372     		strb	r3, [r0, #10]
+  18:modules/motor/servo_motor/servo_motor.c ****     servo->htim = Servo_Init_Config->htim;
+  64              		.loc 1 18 5 is_stmt 1 view .LVU9
+  65              		.loc 1 18 36 is_stmt 0 view .LVU10
+  66 001c 6868     		ldr	r0, [r5, #4]
+  67              	.LVL4:
+  68              		.loc 1 18 17 view .LVU11
+  69 001e E060     		str	r0, [r4, #12]
+  19:modules/motor/servo_motor/servo_motor.c ****     servo->Channel = Servo_Init_Config->Channel;
+  70              		.loc 1 19 5 is_stmt 1 view .LVU12
+  71              		.loc 1 19 39 is_stmt 0 view .LVU13
+  72 0020 A968     		ldr	r1, [r5, #8]
+  73              		.loc 1 19 20 view .LVU14
+  74 0022 2161     		str	r1, [r4, #16]
+  20:modules/motor/servo_motor/servo_motor.c **** 
+  21:modules/motor/servo_motor/servo_motor.c ****     HAL_TIM_PWM_Start(Servo_Init_Config->htim, Servo_Init_Config->Channel);
+  75              		.loc 1 21 5 is_stmt 1 view .LVU15
+  76 0024 FFF7FEFF 		bl	HAL_TIM_PWM_Start
+  77              	.LVL5:
+  22:modules/motor/servo_motor/servo_motor.c ****     servo_motor_instance[servo_idx++] = servo;
+  78              		.loc 1 22 5 view .LVU16
+  79              		.loc 1 22 35 is_stmt 0 view .LVU17
+  80 0028 044A     		ldr	r2, .L3
+  81 002a 1378     		ldrb	r3, [r2]	@ zero_extendqisi2
+  82 002c 591C     		adds	r1, r3, #1
+  83 002e 1170     		strb	r1, [r2]
+  84              		.loc 1 22 39 view .LVU18
+  85 0030 034A     		ldr	r2, .L3+4
+  86 0032 42F82340 		str	r4, [r2, r3, lsl #2]
+  23:modules/motor/servo_motor/servo_motor.c ****     return servo;
+  87              		.loc 1 23 5 is_stmt 1 view .LVU19
+  24:modules/motor/servo_motor/servo_motor.c **** }
+  88              		.loc 1 24 1 is_stmt 0 view .LVU20
+  89 0036 2046     		mov	r0, r4
+  90 0038 38BD     		pop	{r3, r4, r5, pc}
+  91              	.LVL6:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 3
+
+
+  92              	.L4:
+  93              		.loc 1 24 1 view .LVU21
+  94 003a 00BF     		.align	2
+  95              	.L3:
+  96 003c 00000000 		.word	.LANCHOR0
+  97 0040 00000000 		.word	.LANCHOR1
+  98              		.cfi_endproc
+  99              	.LFE235:
+ 101              		.section	.text.Servo_Motor_FreeAngle_Set,"ax",%progbits
+ 102              		.align	1
+ 103              		.global	Servo_Motor_FreeAngle_Set
+ 104              		.syntax unified
+ 105              		.thumb
+ 106              		.thumb_func
+ 108              	Servo_Motor_FreeAngle_Set:
+ 109              	.LVL7:
+ 110              	.LFB236:
+  25:modules/motor/servo_motor/servo_motor.c **** 
+  26:modules/motor/servo_motor/servo_motor.c **** /**
+  27:modules/motor/servo_motor/servo_motor.c ****  * @brief 写入自由角度数值
+  28:modules/motor/servo_motor/servo_motor.c ****  *
+  29:modules/motor/servo_motor/servo_motor.c ****  * @param Servo_Motor 注册的舵机实例
+  30:modules/motor/servo_motor/servo_motor.c ****  * @param S_angle  改变自由模式设定的角度
+  31:modules/motor/servo_motor/servo_motor.c ****  */
+  32:modules/motor/servo_motor/servo_motor.c **** void Servo_Motor_FreeAngle_Set(ServoInstance *Servo_Motor, int16_t S_angle)
+  33:modules/motor/servo_motor/servo_motor.c **** {
+ 111              		.loc 1 33 1 is_stmt 1 view -0
+ 112              		.cfi_startproc
+ 113              		@ args = 0, pretend = 0, frame = 0
+ 114              		@ frame_needed = 0, uses_anonymous_args = 0
+ 115              		@ link register save eliminated.
+  34:modules/motor/servo_motor/servo_motor.c ****     switch (Servo_Motor->Servo_type)
+ 116              		.loc 1 34 5 view .LVU23
+ 117              		.loc 1 34 24 is_stmt 0 view .LVU24
+ 118 0000 837A     		ldrb	r3, [r0, #10]	@ zero_extendqisi2
+ 119              		.loc 1 34 5 view .LVU25
+ 120 0002 012B     		cmp	r3, #1
+ 121 0004 0AD0     		beq	.L6
+ 122 0006 022B     		cmp	r3, #2
+ 123 0008 0ED0     		beq	.L7
+ 124 000a 1BB1     		cbz	r3, .L14
+ 125              	.L8:
+  35:modules/motor/servo_motor/servo_motor.c ****     {
+  36:modules/motor/servo_motor/servo_motor.c ****     case Servo180:
+  37:modules/motor/servo_motor/servo_motor.c ****         if (S_angle > 180)
+  38:modules/motor/servo_motor/servo_motor.c ****             S_angle = 180;
+  39:modules/motor/servo_motor/servo_motor.c ****         break;
+  40:modules/motor/servo_motor/servo_motor.c ****     case Servo270:
+  41:modules/motor/servo_motor/servo_motor.c ****         if (S_angle > 270)
+  42:modules/motor/servo_motor/servo_motor.c ****             S_angle = 270;
+  43:modules/motor/servo_motor/servo_motor.c ****         break;
+  44:modules/motor/servo_motor/servo_motor.c ****     case Servo360:
+  45:modules/motor/servo_motor/servo_motor.c ****         if (S_angle > 100)
+  46:modules/motor/servo_motor/servo_motor.c ****             S_angle = 100;
+  47:modules/motor/servo_motor/servo_motor.c ****         break;
+  48:modules/motor/servo_motor/servo_motor.c ****     default:
+  49:modules/motor/servo_motor/servo_motor.c ****         break;
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 4
+
+
+  50:modules/motor/servo_motor/servo_motor.c ****     }
+  51:modules/motor/servo_motor/servo_motor.c ****     if (S_angle < 0)
+ 126              		.loc 1 51 5 is_stmt 1 view .LVU26
+ 127              		.loc 1 51 8 is_stmt 0 view .LVU27
+ 128 000c 0029     		cmp	r1, #0
+ 129 000e 0FDB     		blt	.L15
+ 130              	.LVL8:
+ 131              	.L9:
+  52:modules/motor/servo_motor/servo_motor.c ****         S_angle = 0;
+  53:modules/motor/servo_motor/servo_motor.c ****     Servo_Motor->Servo_Angle.free_angle = S_angle;
+ 132              		.loc 1 53 5 is_stmt 1 view .LVU28
+ 133              		.loc 1 53 41 is_stmt 0 view .LVU29
+ 134 0010 C180     		strh	r1, [r0, #6]	@ movhi
+  54:modules/motor/servo_motor/servo_motor.c **** }
+ 135              		.loc 1 54 1 view .LVU30
+ 136 0012 7047     		bx	lr
+ 137              	.L14:
+  37:modules/motor/servo_motor/servo_motor.c ****             S_angle = 180;
+ 138              		.loc 1 37 9 is_stmt 1 view .LVU31
+  37:modules/motor/servo_motor/servo_motor.c ****             S_angle = 180;
+ 139              		.loc 1 37 12 is_stmt 0 view .LVU32
+ 140 0014 B429     		cmp	r1, #180
+ 141 0016 F9DD     		ble	.L8
+  38:modules/motor/servo_motor/servo_motor.c ****         break;
+ 142              		.loc 1 38 21 view .LVU33
+ 143 0018 B421     		movs	r1, #180
+ 144              	.LVL9:
+  38:modules/motor/servo_motor/servo_motor.c ****         break;
+ 145              		.loc 1 38 21 view .LVU34
+ 146 001a F9E7     		b	.L9
+ 147              	.LVL10:
+ 148              	.L6:
+  41:modules/motor/servo_motor/servo_motor.c ****             S_angle = 270;
+ 149              		.loc 1 41 9 is_stmt 1 view .LVU35
+  41:modules/motor/servo_motor/servo_motor.c ****             S_angle = 270;
+ 150              		.loc 1 41 12 is_stmt 0 view .LVU36
+ 151 001c B1F5877F 		cmp	r1, #270
+ 152 0020 F4DD     		ble	.L8
+  42:modules/motor/servo_motor/servo_motor.c ****         break;
+ 153              		.loc 1 42 21 view .LVU37
+ 154 0022 4FF48771 		mov	r1, #270
+ 155              	.LVL11:
+  42:modules/motor/servo_motor/servo_motor.c ****         break;
+ 156              		.loc 1 42 21 view .LVU38
+ 157 0026 F3E7     		b	.L9
+ 158              	.LVL12:
+ 159              	.L7:
+  45:modules/motor/servo_motor/servo_motor.c ****             S_angle = 100;
+ 160              		.loc 1 45 9 is_stmt 1 view .LVU39
+  45:modules/motor/servo_motor/servo_motor.c ****             S_angle = 100;
+ 161              		.loc 1 45 12 is_stmt 0 view .LVU40
+ 162 0028 6429     		cmp	r1, #100
+ 163 002a EFDD     		ble	.L8
+  46:modules/motor/servo_motor/servo_motor.c ****         break;
+ 164              		.loc 1 46 21 view .LVU41
+ 165 002c 6421     		movs	r1, #100
+ 166              	.LVL13:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 5
+
+
+  46:modules/motor/servo_motor/servo_motor.c ****         break;
+ 167              		.loc 1 46 21 view .LVU42
+ 168 002e EFE7     		b	.L9
+ 169              	.LVL14:
+ 170              	.L15:
+  52:modules/motor/servo_motor/servo_motor.c ****     Servo_Motor->Servo_Angle.free_angle = S_angle;
+ 171              		.loc 1 52 17 view .LVU43
+ 172 0030 0021     		movs	r1, #0
+ 173              	.LVL15:
+  52:modules/motor/servo_motor/servo_motor.c ****     Servo_Motor->Servo_Angle.free_angle = S_angle;
+ 174              		.loc 1 52 17 view .LVU44
+ 175 0032 EDE7     		b	.L9
+ 176              		.cfi_endproc
+ 177              	.LFE236:
+ 179              		.section	.text.Servo_Motor_StartSTOP_Angle_Set,"ax",%progbits
+ 180              		.align	1
+ 181              		.global	Servo_Motor_StartSTOP_Angle_Set
+ 182              		.syntax unified
+ 183              		.thumb
+ 184              		.thumb_func
+ 186              	Servo_Motor_StartSTOP_Angle_Set:
+ 187              	.LVL16:
+ 188              	.LFB237:
+  55:modules/motor/servo_motor/servo_motor.c **** 
+  56:modules/motor/servo_motor/servo_motor.c **** /**
+  57:modules/motor/servo_motor/servo_motor.c ****  * @brief 写入起始，终止角度数值
+  58:modules/motor/servo_motor/servo_motor.c ****  *
+  59:modules/motor/servo_motor/servo_motor.c ****  * @param Servo_Motor 注册的舵机实例
+  60:modules/motor/servo_motor/servo_motor.c ****  * @param Start_angle 起始角度
+  61:modules/motor/servo_motor/servo_motor.c ****  * @param Final_angle 终止角度
+  62:modules/motor/servo_motor/servo_motor.c ****  */
+  63:modules/motor/servo_motor/servo_motor.c **** void Servo_Motor_StartSTOP_Angle_Set(ServoInstance *Servo_Motor, int16_t Start_angle, int16_t Final
+  64:modules/motor/servo_motor/servo_motor.c **** {
+ 189              		.loc 1 64 1 is_stmt 1 view -0
+ 190              		.cfi_startproc
+ 191              		@ args = 0, pretend = 0, frame = 0
+ 192              		@ frame_needed = 0, uses_anonymous_args = 0
+ 193              		@ link register save eliminated.
+  65:modules/motor/servo_motor/servo_motor.c ****     Servo_Motor->Servo_Angle.Init_angle = Start_angle;
+ 194              		.loc 1 65 5 view .LVU46
+ 195              		.loc 1 65 41 is_stmt 0 view .LVU47
+ 196 0000 4180     		strh	r1, [r0, #2]	@ movhi
+  66:modules/motor/servo_motor/servo_motor.c ****     Servo_Motor->Servo_Angle.Final_angle = Final_angle;
+ 197              		.loc 1 66 5 is_stmt 1 view .LVU48
+ 198              		.loc 1 66 42 is_stmt 0 view .LVU49
+ 199 0002 8280     		strh	r2, [r0, #4]	@ movhi
+  67:modules/motor/servo_motor/servo_motor.c **** }
+ 200              		.loc 1 67 1 view .LVU50
+ 201 0004 7047     		bx	lr
+ 202              		.cfi_endproc
+ 203              	.LFE237:
+ 205              		.section	.text.Servo_Motor_Type_Select,"ax",%progbits
+ 206              		.align	1
+ 207              		.global	Servo_Motor_Type_Select
+ 208              		.syntax unified
+ 209              		.thumb
+ 210              		.thumb_func
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 6
+
+
+ 212              	Servo_Motor_Type_Select:
+ 213              	.LVL17:
+ 214              	.LFB238:
+  68:modules/motor/servo_motor/servo_motor.c **** /**
+  69:modules/motor/servo_motor/servo_motor.c ****  * @brief 舵机模式选择
+  70:modules/motor/servo_motor/servo_motor.c ****  *
+  71:modules/motor/servo_motor/servo_motor.c ****  * @param Servo_Motor 注册的舵机实例
+  72:modules/motor/servo_motor/servo_motor.c ****  * @param mode 需要选择的模式
+  73:modules/motor/servo_motor/servo_motor.c ****  */
+  74:modules/motor/servo_motor/servo_motor.c **** void Servo_Motor_Type_Select(ServoInstance *Servo_Motor, int16_t mode)
+  75:modules/motor/servo_motor/servo_motor.c **** {
+ 215              		.loc 1 75 1 is_stmt 1 view -0
+ 216              		.cfi_startproc
+ 217              		@ args = 0, pretend = 0, frame = 0
+ 218              		@ frame_needed = 0, uses_anonymous_args = 0
+ 219              		@ link register save eliminated.
+  76:modules/motor/servo_motor/servo_motor.c ****     Servo_Motor->Servo_Angle_Type = mode;
+ 220              		.loc 1 76 5 view .LVU52
+ 221              		.loc 1 76 35 is_stmt 0 view .LVU53
+ 222 0000 0170     		strb	r1, [r0]
+  77:modules/motor/servo_motor/servo_motor.c **** }
+ 223              		.loc 1 77 1 view .LVU54
+ 224 0002 7047     		bx	lr
+ 225              		.cfi_endproc
+ 226              	.LFE238:
+ 228              		.global	__aeabi_i2d
+ 229              		.global	__aeabi_dadd
+ 230              		.global	__aeabi_d2iz
+ 231              		.section	.text.ServeoMotorControl,"ax",%progbits
+ 232              		.align	1
+ 233              		.global	ServeoMotorControl
+ 234              		.syntax unified
+ 235              		.thumb
+ 236              		.thumb_func
+ 238              	ServeoMotorControl:
+ 239              	.LFB239:
+  78:modules/motor/servo_motor/servo_motor.c **** 
+  79:modules/motor/servo_motor/servo_motor.c **** /**
+  80:modules/motor/servo_motor/servo_motor.c ****  * @brief 舵机输出控制
+  81:modules/motor/servo_motor/servo_motor.c ****  *
+  82:modules/motor/servo_motor/servo_motor.c ****  */
+  83:modules/motor/servo_motor/servo_motor.c **** void ServeoMotorControl()
+  84:modules/motor/servo_motor/servo_motor.c **** {
+ 240              		.loc 1 84 1 is_stmt 1 view -0
+ 241              		.cfi_startproc
+ 242              		@ args = 0, pretend = 0, frame = 0
+ 243              		@ frame_needed = 0, uses_anonymous_args = 0
+ 244 0000 38B5     		push	{r3, r4, r5, lr}
+ 245              	.LCFI1:
+ 246              		.cfi_def_cfa_offset 16
+ 247              		.cfi_offset 3, -16
+ 248              		.cfi_offset 4, -12
+ 249              		.cfi_offset 5, -8
+ 250              		.cfi_offset 14, -4
+  85:modules/motor/servo_motor/servo_motor.c ****     ServoInstance *Servo_Motor;
+ 251              		.loc 1 85 5 view .LVU56
+  86:modules/motor/servo_motor/servo_motor.c **** 
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 7
+
+
+  87:modules/motor/servo_motor/servo_motor.c ****     for (size_t i = 0; i < servo_idx; i++)
+ 252              		.loc 1 87 5 view .LVU57
+ 253              	.LBB2:
+ 254              		.loc 1 87 10 view .LVU58
+ 255              	.LVL18:
+ 256              		.loc 1 87 17 is_stmt 0 view .LVU59
+ 257 0002 0025     		movs	r5, #0
+ 258              		.loc 1 87 5 view .LVU60
+ 259 0004 74E0     		b	.L19
+ 260              	.LVL19:
+ 261              	.L45:
+  88:modules/motor/servo_motor/servo_motor.c ****     {
+  89:modules/motor/servo_motor/servo_motor.c ****         if (servo_motor_instance[i])
+  90:modules/motor/servo_motor/servo_motor.c ****         {
+  91:modules/motor/servo_motor/servo_motor.c ****             Servo_Motor = servo_motor_instance[i];
+  92:modules/motor/servo_motor/servo_motor.c **** 
+  93:modules/motor/servo_motor/servo_motor.c ****             switch (Servo_Motor->Servo_type)
+  94:modules/motor/servo_motor/servo_motor.c ****             {
+  95:modules/motor/servo_motor/servo_motor.c ****             case Servo180:
+  96:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Start_mode)
+  97:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Init_angle * 200
+ 262              		.loc 1 97 21 is_stmt 1 view .LVU61
+ 263              		.loc 1 97 83 is_stmt 0 view .LVU62
+ 264 0006 B4F90230 		ldrsh	r3, [r4, #2]
+ 265              		.loc 1 97 103 view .LVU63
+ 266 000a 4FF47A70 		mov	r0, #1000
+ 267 000e 00FB03F3 		mul	r3, r0, r3
+ 268              		.loc 1 97 108 view .LVU64
+ 269 0012 8C48     		ldr	r0, .L51
+ 270 0014 80FB0320 		smull	r2, r0, r0, r3
+ 271 0018 1844     		add	r0, r0, r3
+ 272 001a DB17     		asrs	r3, r3, #31
+ 273              		.loc 1 97 57 view .LVU65
+ 274 001c C3EBA010 		rsb	r0, r3, r0, asr #6
+ 275 0020 FFF7FEFF 		bl	__aeabi_i2d
+ 276              	.LVL20:
+ 277 0024 0022     		movs	r2, #0
+ 278 0026 884B     		ldr	r3, .L51+4
+ 279 0028 FFF7FEFF 		bl	__aeabi_dadd
+ 280              	.LVL21:
+ 281              		.loc 1 97 38 view .LVU66
+ 282 002c FFF7FEFF 		bl	__aeabi_d2iz
+ 283              	.LVL22:
+ 284 0030 864B     		ldr	r3, .L51+8
+ 285 0032 23F81500 		strh	r0, [r3, r5, lsl #1]	@ movhi
+ 286 0036 70E0     		b	.L23
+ 287              	.L46:
+  98:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Final_mode)
+  99:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Final_angle * 20
+ 288              		.loc 1 99 21 is_stmt 1 view .LVU67
+ 289              		.loc 1 99 83 is_stmt 0 view .LVU68
+ 290 0038 B4F90430 		ldrsh	r3, [r4, #4]
+ 291              		.loc 1 99 104 view .LVU69
+ 292 003c 4FF47A70 		mov	r0, #1000
+ 293 0040 00FB03F3 		mul	r3, r0, r3
+ 294              		.loc 1 99 109 view .LVU70
+ 295 0044 7F48     		ldr	r0, .L51
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 8
+
+
+ 296 0046 80FB0320 		smull	r2, r0, r0, r3
+ 297 004a 1844     		add	r0, r0, r3
+ 298 004c DB17     		asrs	r3, r3, #31
+ 299              		.loc 1 99 57 view .LVU71
+ 300 004e C3EBA010 		rsb	r0, r3, r0, asr #6
+ 301 0052 FFF7FEFF 		bl	__aeabi_i2d
+ 302              	.LVL23:
+ 303 0056 0022     		movs	r2, #0
+ 304 0058 7B4B     		ldr	r3, .L51+4
+ 305 005a FFF7FEFF 		bl	__aeabi_dadd
+ 306              	.LVL24:
+ 307              		.loc 1 99 38 view .LVU72
+ 308 005e FFF7FEFF 		bl	__aeabi_d2iz
+ 309              	.LVL25:
+ 310 0062 7A4B     		ldr	r3, .L51+8
+ 311 0064 23F81500 		strh	r0, [r3, r5, lsl #1]	@ movhi
+ 312 0068 5AE0     		b	.L24
+ 313              	.L26:
+ 100:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Free_Angle_mode)
+ 101:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.free_angle * 200
+ 102:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 314              		.loc 1 102 17 discriminator 2 view .LVU73
+ 315 006a 042B     		cmp	r3, #4
+ 316 006c 08D0     		beq	.L40
+ 317              		.loc 1 102 17 discriminator 4 view .LVU74
+ 318 006e 082B     		cmp	r3, #8
+ 319 0070 0DD0     		beq	.L41
+ 320              		.loc 1 102 17 discriminator 7 view .LVU75
+ 321 0072 E368     		ldr	r3, [r4, #12]
+ 322 0074 1B68     		ldr	r3, [r3]
+ 323 0076 754A     		ldr	r2, .L51+8
+ 324 0078 32F91520 		ldrsh	r2, [r2, r5, lsl #1]
+ 325 007c 1A64     		str	r2, [r3, #64]
+ 326 007e 36E0     		b	.L20
+ 327              	.L40:
+ 328              		.loc 1 102 17 discriminator 3 view .LVU76
+ 329 0080 E368     		ldr	r3, [r4, #12]
+ 330 0082 1B68     		ldr	r3, [r3]
+ 331 0084 714A     		ldr	r2, .L51+8
+ 332 0086 32F91520 		ldrsh	r2, [r2, r5, lsl #1]
+ 333 008a 9A63     		str	r2, [r3, #56]
+ 334 008c 2FE0     		b	.L20
+ 335              	.L41:
+ 336              		.loc 1 102 17 discriminator 6 view .LVU77
+ 337 008e E368     		ldr	r3, [r4, #12]
+ 338 0090 1B68     		ldr	r3, [r3]
+ 339 0092 6E4A     		ldr	r2, .L51+8
+ 340 0094 32F91520 		ldrsh	r2, [r2, r5, lsl #1]
+ 341 0098 DA63     		str	r2, [r3, #60]
+ 342 009a 28E0     		b	.L20
+ 343              	.L21:
+ 103:modules/motor/servo_motor/servo_motor.c ****                 break;
+ 104:modules/motor/servo_motor/servo_motor.c ****             case Servo270:
+ 105:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Start_mode)
+ 344              		.loc 1 105 17 is_stmt 1 view .LVU78
+ 345              		.loc 1 105 32 is_stmt 0 view .LVU79
+ 346 009c 2378     		ldrb	r3, [r4]	@ zero_extendqisi2
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 9
+
+
+ 347              		.loc 1 105 20 view .LVU80
+ 348 009e 012B     		cmp	r3, #1
+ 349 00a0 62D0     		beq	.L42
+ 350              	.L29:
+ 106:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Init_angle * 200
+ 107:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Final_mode)
+ 351              		.loc 1 107 17 is_stmt 1 view .LVU81
+ 352              		.loc 1 107 32 is_stmt 0 view .LVU82
+ 353 00a2 2378     		ldrb	r3, [r4]	@ zero_extendqisi2
+ 354              		.loc 1 107 20 view .LVU83
+ 355 00a4 022B     		cmp	r3, #2
+ 356 00a6 78D0     		beq	.L43
+ 357              	.L30:
+ 108:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Final_angle * 20
+ 109:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Free_Angle_mode)
+ 358              		.loc 1 109 17 is_stmt 1 view .LVU84
+ 359              		.loc 1 109 32 is_stmt 0 view .LVU85
+ 360 00a8 2378     		ldrb	r3, [r4]	@ zero_extendqisi2
+ 361              		.loc 1 109 20 view .LVU86
+ 362 00aa BBB9     		cbnz	r3, .L31
+ 110:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.free_angle * 200
+ 363              		.loc 1 110 21 is_stmt 1 view .LVU87
+ 364              		.loc 1 110 83 is_stmt 0 view .LVU88
+ 365 00ac B4F90630 		ldrsh	r3, [r4, #6]
+ 366              		.loc 1 110 103 view .LVU89
+ 367 00b0 4FF47A70 		mov	r0, #1000
+ 368 00b4 00FB03F3 		mul	r3, r0, r3
+ 369              		.loc 1 110 108 view .LVU90
+ 370 00b8 6548     		ldr	r0, .L51+12
+ 371 00ba 80FB0320 		smull	r2, r0, r0, r3
+ 372 00be 1844     		add	r0, r0, r3
+ 373 00c0 DB17     		asrs	r3, r3, #31
+ 374              		.loc 1 110 57 view .LVU91
+ 375 00c2 C3EBE010 		rsb	r0, r3, r0, asr #7
+ 376 00c6 FFF7FEFF 		bl	__aeabi_i2d
+ 377              	.LVL26:
+ 378 00ca 0022     		movs	r2, #0
+ 379 00cc 5E4B     		ldr	r3, .L51+4
+ 380 00ce FFF7FEFF 		bl	__aeabi_dadd
+ 381              	.LVL27:
+ 382              		.loc 1 110 38 view .LVU92
+ 383 00d2 FFF7FEFF 		bl	__aeabi_d2iz
+ 384              	.LVL28:
+ 385 00d6 5D4B     		ldr	r3, .L51+8
+ 386 00d8 23F81500 		strh	r0, [r3, r5, lsl #1]	@ movhi
+ 387              	.L31:
+ 111:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 388              		.loc 1 111 17 is_stmt 1 view .LVU93
+ 389 00dc 2369     		ldr	r3, [r4, #16]
+ 390 00de 002B     		cmp	r3, #0
+ 391 00e0 74D1     		bne	.L32
+ 392              		.loc 1 111 17 is_stmt 0 discriminator 1 view .LVU94
+ 393 00e2 E368     		ldr	r3, [r4, #12]
+ 394 00e4 1B68     		ldr	r3, [r3]
+ 395 00e6 594A     		ldr	r2, .L51+8
+ 396 00e8 32F91520 		ldrsh	r2, [r2, r5, lsl #1]
+ 397 00ec 5A63     		str	r2, [r3, #52]
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 10
+
+
+ 398              	.LVL29:
+ 399              	.L20:
+  87:modules/motor/servo_motor/servo_motor.c ****     {
+ 400              		.loc 1 87 39 is_stmt 1 discriminator 2 view .LVU95
+  87:modules/motor/servo_motor/servo_motor.c ****     {
+ 401              		.loc 1 87 40 is_stmt 0 discriminator 2 view .LVU96
+ 402 00ee 0135     		adds	r5, r5, #1
+ 403              	.LVL30:
+ 404              	.L19:
+  87:modules/motor/servo_motor/servo_motor.c ****     {
+ 405              		.loc 1 87 24 is_stmt 1 discriminator 1 view .LVU97
+  87:modules/motor/servo_motor/servo_motor.c ****     {
+ 406              		.loc 1 87 26 is_stmt 0 discriminator 1 view .LVU98
+ 407 00f0 584B     		ldr	r3, .L51+16
+ 408 00f2 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+  87:modules/motor/servo_motor/servo_motor.c ****     {
+ 409              		.loc 1 87 5 discriminator 1 view .LVU99
+ 410 00f4 AB42     		cmp	r3, r5
+ 411 00f6 40F2A380 		bls	.L44
+  89:modules/motor/servo_motor/servo_motor.c ****         {
+ 412              		.loc 1 89 9 is_stmt 1 view .LVU100
+  89:modules/motor/servo_motor/servo_motor.c ****         {
+ 413              		.loc 1 89 33 is_stmt 0 view .LVU101
+ 414 00fa 574B     		ldr	r3, .L51+20
+ 415 00fc 53F82540 		ldr	r4, [r3, r5, lsl #2]
+  89:modules/motor/servo_motor/servo_motor.c ****         {
+ 416              		.loc 1 89 12 view .LVU102
+ 417 0100 002C     		cmp	r4, #0
+ 418 0102 F4D0     		beq	.L20
+  91:modules/motor/servo_motor/servo_motor.c **** 
+ 419              		.loc 1 91 13 is_stmt 1 view .LVU103
+ 420              	.LVL31:
+  93:modules/motor/servo_motor/servo_motor.c ****             {
+ 421              		.loc 1 93 13 view .LVU104
+  93:modules/motor/servo_motor/servo_motor.c ****             {
+ 422              		.loc 1 93 32 is_stmt 0 view .LVU105
+ 423 0104 A37A     		ldrb	r3, [r4, #10]	@ zero_extendqisi2
+  93:modules/motor/servo_motor/servo_motor.c ****             {
+ 424              		.loc 1 93 13 view .LVU106
+ 425 0106 012B     		cmp	r3, #1
+ 426 0108 C8D0     		beq	.L21
+ 427 010a 022B     		cmp	r3, #2
+ 428 010c 77D0     		beq	.L22
+ 429 010e 002B     		cmp	r3, #0
+ 430 0110 EDD1     		bne	.L20
+  96:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Init_angle * 200
+ 431              		.loc 1 96 17 is_stmt 1 view .LVU107
+  96:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Init_angle * 200
+ 432              		.loc 1 96 32 is_stmt 0 view .LVU108
+ 433 0112 2378     		ldrb	r3, [r4]	@ zero_extendqisi2
+  96:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Init_angle * 200
+ 434              		.loc 1 96 20 view .LVU109
+ 435 0114 012B     		cmp	r3, #1
+ 436 0116 3FF476AF 		beq	.L45
+ 437              	.L23:
+  98:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Final_angle * 20
+ 438              		.loc 1 98 17 is_stmt 1 view .LVU110
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 11
+
+
+  98:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Final_angle * 20
+ 439              		.loc 1 98 32 is_stmt 0 view .LVU111
+ 440 011a 2378     		ldrb	r3, [r4]	@ zero_extendqisi2
+  98:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.Final_angle * 20
+ 441              		.loc 1 98 20 view .LVU112
+ 442 011c 022B     		cmp	r3, #2
+ 443 011e 8BD0     		beq	.L46
+ 444              	.L24:
+ 100:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.free_angle * 200
+ 445              		.loc 1 100 17 is_stmt 1 view .LVU113
+ 100:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.free_angle * 200
+ 446              		.loc 1 100 32 is_stmt 0 view .LVU114
+ 447 0120 2378     		ldrb	r3, [r4]	@ zero_extendqisi2
+ 100:modules/motor/servo_motor/servo_motor.c ****                     compare_value[i] = 0.5 * 20000 / 20 + Servo_Motor->Servo_Angle.free_angle * 200
+ 448              		.loc 1 100 20 view .LVU115
+ 449 0122 BBB9     		cbnz	r3, .L25
+ 101:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 450              		.loc 1 101 21 is_stmt 1 view .LVU116
+ 101:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 451              		.loc 1 101 83 is_stmt 0 view .LVU117
+ 452 0124 B4F90630 		ldrsh	r3, [r4, #6]
+ 101:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 453              		.loc 1 101 103 view .LVU118
+ 454 0128 4FF47A70 		mov	r0, #1000
+ 455 012c 00FB03F3 		mul	r3, r0, r3
+ 101:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 456              		.loc 1 101 108 view .LVU119
+ 457 0130 4448     		ldr	r0, .L51
+ 458 0132 80FB0320 		smull	r2, r0, r0, r3
+ 459 0136 1844     		add	r0, r0, r3
+ 460 0138 DB17     		asrs	r3, r3, #31
+ 101:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 461              		.loc 1 101 57 view .LVU120
+ 462 013a C3EBA010 		rsb	r0, r3, r0, asr #6
+ 463 013e FFF7FEFF 		bl	__aeabi_i2d
+ 464              	.LVL32:
+ 465 0142 0022     		movs	r2, #0
+ 466 0144 404B     		ldr	r3, .L51+4
+ 467 0146 FFF7FEFF 		bl	__aeabi_dadd
+ 468              	.LVL33:
+ 101:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 469              		.loc 1 101 38 view .LVU121
+ 470 014a FFF7FEFF 		bl	__aeabi_d2iz
+ 471              	.LVL34:
+ 472 014e 3F4B     		ldr	r3, .L51+8
+ 473 0150 23F81500 		strh	r0, [r3, r5, lsl #1]	@ movhi
+ 474              	.L25:
+ 102:modules/motor/servo_motor/servo_motor.c ****                 break;
+ 475              		.loc 1 102 17 is_stmt 1 view .LVU122
+ 476 0154 2369     		ldr	r3, [r4, #16]
+ 477 0156 002B     		cmp	r3, #0
+ 478 0158 87D1     		bne	.L26
+ 102:modules/motor/servo_motor/servo_motor.c ****                 break;
+ 479              		.loc 1 102 17 is_stmt 0 discriminator 1 view .LVU123
+ 480 015a E368     		ldr	r3, [r4, #12]
+ 481 015c 1B68     		ldr	r3, [r3]
+ 482 015e 3B4A     		ldr	r2, .L51+8
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 12
+
+
+ 483 0160 32F91520 		ldrsh	r2, [r2, r5, lsl #1]
+ 484 0164 5A63     		str	r2, [r3, #52]
+ 485 0166 C2E7     		b	.L20
+ 486              	.L42:
+ 106:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Final_mode)
+ 487              		.loc 1 106 21 is_stmt 1 view .LVU124
+ 106:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Final_mode)
+ 488              		.loc 1 106 83 is_stmt 0 view .LVU125
+ 489 0168 B4F90230 		ldrsh	r3, [r4, #2]
+ 106:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Final_mode)
+ 490              		.loc 1 106 103 view .LVU126
+ 491 016c 4FF47A70 		mov	r0, #1000
+ 492 0170 00FB03F3 		mul	r3, r0, r3
+ 106:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Final_mode)
+ 493              		.loc 1 106 108 view .LVU127
+ 494 0174 3648     		ldr	r0, .L51+12
+ 495 0176 80FB0320 		smull	r2, r0, r0, r3
+ 496 017a 1844     		add	r0, r0, r3
+ 497 017c DB17     		asrs	r3, r3, #31
+ 106:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Final_mode)
+ 498              		.loc 1 106 57 view .LVU128
+ 499 017e C3EBE010 		rsb	r0, r3, r0, asr #7
+ 500 0182 FFF7FEFF 		bl	__aeabi_i2d
+ 501              	.LVL35:
+ 502 0186 0022     		movs	r2, #0
+ 503 0188 2F4B     		ldr	r3, .L51+4
+ 504 018a FFF7FEFF 		bl	__aeabi_dadd
+ 505              	.LVL36:
+ 106:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Final_mode)
+ 506              		.loc 1 106 38 view .LVU129
+ 507 018e FFF7FEFF 		bl	__aeabi_d2iz
+ 508              	.LVL37:
+ 509 0192 2E4B     		ldr	r3, .L51+8
+ 510 0194 23F81500 		strh	r0, [r3, r5, lsl #1]	@ movhi
+ 511 0198 83E7     		b	.L29
+ 512              	.L43:
+ 108:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Free_Angle_mode)
+ 513              		.loc 1 108 21 is_stmt 1 view .LVU130
+ 108:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Free_Angle_mode)
+ 514              		.loc 1 108 83 is_stmt 0 view .LVU131
+ 515 019a B4F90430 		ldrsh	r3, [r4, #4]
+ 108:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Free_Angle_mode)
+ 516              		.loc 1 108 104 view .LVU132
+ 517 019e 4FF47A70 		mov	r0, #1000
+ 518 01a2 00FB03F3 		mul	r3, r0, r3
+ 108:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Free_Angle_mode)
+ 519              		.loc 1 108 109 view .LVU133
+ 520 01a6 2A48     		ldr	r0, .L51+12
+ 521 01a8 80FB0320 		smull	r2, r0, r0, r3
+ 522 01ac 1844     		add	r0, r0, r3
+ 523 01ae DB17     		asrs	r3, r3, #31
+ 108:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Free_Angle_mode)
+ 524              		.loc 1 108 57 view .LVU134
+ 525 01b0 C3EBE010 		rsb	r0, r3, r0, asr #7
+ 526 01b4 FFF7FEFF 		bl	__aeabi_i2d
+ 527              	.LVL38:
+ 528 01b8 0022     		movs	r2, #0
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 13
+
+
+ 529 01ba 234B     		ldr	r3, .L51+4
+ 530 01bc FFF7FEFF 		bl	__aeabi_dadd
+ 531              	.LVL39:
+ 108:modules/motor/servo_motor/servo_motor.c ****                 if (Servo_Motor->Servo_Angle_Type == Free_Angle_mode)
+ 532              		.loc 1 108 38 view .LVU135
+ 533 01c0 FFF7FEFF 		bl	__aeabi_d2iz
+ 534              	.LVL40:
+ 535 01c4 214B     		ldr	r3, .L51+8
+ 536 01c6 23F81500 		strh	r0, [r3, r5, lsl #1]	@ movhi
+ 537 01ca 6DE7     		b	.L30
+ 538              	.L32:
+ 539              		.loc 1 111 17 discriminator 2 view .LVU136
+ 540 01cc 042B     		cmp	r3, #4
+ 541 01ce 08D0     		beq	.L47
+ 542              		.loc 1 111 17 discriminator 4 view .LVU137
+ 543 01d0 082B     		cmp	r3, #8
+ 544 01d2 0DD0     		beq	.L48
+ 545              		.loc 1 111 17 discriminator 7 view .LVU138
+ 546 01d4 E368     		ldr	r3, [r4, #12]
+ 547 01d6 1B68     		ldr	r3, [r3]
+ 548 01d8 1C4A     		ldr	r2, .L51+8
+ 549 01da 32F91520 		ldrsh	r2, [r2, r5, lsl #1]
+ 550 01de 1A64     		str	r2, [r3, #64]
+ 551 01e0 85E7     		b	.L20
+ 552              	.L47:
+ 553              		.loc 1 111 17 discriminator 3 view .LVU139
+ 554 01e2 E368     		ldr	r3, [r4, #12]
+ 555 01e4 1B68     		ldr	r3, [r3]
+ 556 01e6 194A     		ldr	r2, .L51+8
+ 557 01e8 32F91520 		ldrsh	r2, [r2, r5, lsl #1]
+ 558 01ec 9A63     		str	r2, [r3, #56]
+ 559 01ee 7EE7     		b	.L20
+ 560              	.L48:
+ 561              		.loc 1 111 17 discriminator 6 view .LVU140
+ 562 01f0 E368     		ldr	r3, [r4, #12]
+ 563 01f2 1B68     		ldr	r3, [r3]
+ 564 01f4 154A     		ldr	r2, .L51+8
+ 565 01f6 32F91520 		ldrsh	r2, [r2, r5, lsl #1]
+ 566 01fa DA63     		str	r2, [r3, #60]
+ 567 01fc 77E7     		b	.L20
+ 568              	.L22:
+ 112:modules/motor/servo_motor/servo_motor.c ****                 break;
+ 113:modules/motor/servo_motor/servo_motor.c ****             case Servo360:
+ 114:modules/motor/servo_motor/servo_motor.c ****                 /*500-2500的占空比 500-1500对应正向转速 1500-2500对于反向转速*/
+ 115:modules/motor/servo_motor/servo_motor.c ****                 compare_value[i] = 500 + 20 * Servo_Motor->Servo_Angle.servo360speed;
+ 569              		.loc 1 115 17 is_stmt 1 view .LVU141
+ 570              		.loc 1 115 71 is_stmt 0 view .LVU142
+ 571 01fe 2389     		ldrh	r3, [r4, #8]
+ 572              		.loc 1 115 45 view .LVU143
+ 573 0200 03EB8303 		add	r3, r3, r3, lsl #2
+ 574 0204 9B00     		lsls	r3, r3, #2
+ 575 0206 9BB2     		uxth	r3, r3
+ 576              		.loc 1 115 40 view .LVU144
+ 577 0208 03F5FA73 		add	r3, r3, #500
+ 578 020c 1BB2     		sxth	r3, r3
+ 579              		.loc 1 115 34 view .LVU145
+ 580 020e 0F4A     		ldr	r2, .L51+8
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 14
+
+
+ 581 0210 22F81530 		strh	r3, [r2, r5, lsl #1]	@ movhi
+ 116:modules/motor/servo_motor/servo_motor.c ****                 __HAL_TIM_SET_COMPARE(Servo_Motor->htim, Servo_Motor->Channel, compare_value[i]);
+ 582              		.loc 1 116 17 is_stmt 1 view .LVU146
+ 583 0214 2269     		ldr	r2, [r4, #16]
+ 584 0216 1AB9     		cbnz	r2, .L35
+ 585              		.loc 1 116 17 is_stmt 0 discriminator 1 view .LVU147
+ 586 0218 E268     		ldr	r2, [r4, #12]
+ 587 021a 1268     		ldr	r2, [r2]
+ 588 021c 5363     		str	r3, [r2, #52]
+ 589 021e 66E7     		b	.L20
+ 590              	.L35:
+ 591              		.loc 1 116 17 discriminator 2 view .LVU148
+ 592 0220 042A     		cmp	r2, #4
+ 593 0222 05D0     		beq	.L49
+ 594              		.loc 1 116 17 discriminator 4 view .LVU149
+ 595 0224 082A     		cmp	r2, #8
+ 596 0226 07D0     		beq	.L50
+ 597              		.loc 1 116 17 discriminator 7 view .LVU150
+ 598 0228 E268     		ldr	r2, [r4, #12]
+ 599 022a 1268     		ldr	r2, [r2]
+ 600 022c 1364     		str	r3, [r2, #64]
+ 601 022e 5EE7     		b	.L20
+ 602              	.L49:
+ 603              		.loc 1 116 17 discriminator 3 view .LVU151
+ 604 0230 E268     		ldr	r2, [r4, #12]
+ 605 0232 1268     		ldr	r2, [r2]
+ 606 0234 9363     		str	r3, [r2, #56]
+ 607 0236 5AE7     		b	.L20
+ 608              	.L50:
+ 609              		.loc 1 116 17 discriminator 6 view .LVU152
+ 610 0238 E268     		ldr	r2, [r4, #12]
+ 611 023a 1268     		ldr	r2, [r2]
+ 612 023c D363     		str	r3, [r2, #60]
+ 613 023e 56E7     		b	.L20
+ 614              	.LVL41:
+ 615              	.L44:
+ 616              		.loc 1 116 17 discriminator 6 view .LVU153
+ 617              	.LBE2:
+ 117:modules/motor/servo_motor/servo_motor.c ****                 break;
+ 118:modules/motor/servo_motor/servo_motor.c ****             default:
+ 119:modules/motor/servo_motor/servo_motor.c ****                 break;
+ 120:modules/motor/servo_motor/servo_motor.c ****             }
+ 121:modules/motor/servo_motor/servo_motor.c ****         }
+ 122:modules/motor/servo_motor/servo_motor.c ****     }
+ 123:modules/motor/servo_motor/servo_motor.c **** }
+ 618              		.loc 1 123 1 view .LVU154
+ 619 0240 38BD     		pop	{r3, r4, r5, pc}
+ 620              	.LVL42:
+ 621              	.L52:
+ 622              		.loc 1 123 1 view .LVU155
+ 623 0242 00BF     		.align	2
+ 624              	.L51:
+ 625 0244 B7600BB6 		.word	-1240768329
+ 626 0248 00407F40 		.word	1082081280
+ 627 024c 00000000 		.word	.LANCHOR2
+ 628 0250 49D6B9F2 		.word	-222702007
+ 629 0254 00000000 		.word	.LANCHOR0
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 15
+
+
+ 630 0258 00000000 		.word	.LANCHOR1
+ 631              		.cfi_endproc
+ 632              	.LFE239:
+ 634              		.section	.bss.compare_value,"aw",%nobits
+ 635              		.align	2
+ 636              		.set	.LANCHOR2,. + 0
+ 639              	compare_value:
+ 640 0000 00000000 		.space	14
+ 640      00000000 
+ 640      00000000 
+ 640      0000
+ 641              		.section	.bss.servo_idx,"aw",%nobits
+ 642              		.set	.LANCHOR0,. + 0
+ 645              	servo_idx:
+ 646 0000 00       		.space	1
+ 647              		.section	.bss.servo_motor_instance,"aw",%nobits
+ 648              		.align	2
+ 649              		.set	.LANCHOR1,. + 0
+ 652              	servo_motor_instance:
+ 653 0000 00000000 		.space	28
+ 653      00000000 
+ 653      00000000 
+ 653      00000000 
+ 653      00000000 
+ 654              		.text
+ 655              	.Letext0:
+ 656              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 657              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ 658              		.file 4 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h"
+ 659              		.file 5 "c:\\installsoftware\\arm-gnu-toolchian\\lib\\gcc\\arm-none-eabi\\10.3.1\\include\\stddef.
+ 660              		.file 6 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h"
+ 661              		.file 7 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h"
+ 662              		.file 8 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h"
+ 663              		.file 9 "modules/motor/servo_motor/servo_motor.h"
+ 664              		.file 10 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\stdlib.h"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s 			page 16
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 servo_motor.c
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:20     .text.ServoInit:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:26     .text.ServoInit:00000000 ServoInit
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:96     .text.ServoInit:0000003c $d
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:102    .text.Servo_Motor_FreeAngle_Set:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:108    .text.Servo_Motor_FreeAngle_Set:00000000 Servo_Motor_FreeAngle_Set
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:180    .text.Servo_Motor_StartSTOP_Angle_Set:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:186    .text.Servo_Motor_StartSTOP_Angle_Set:00000000 Servo_Motor_StartSTOP_Angle_Set
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:206    .text.Servo_Motor_Type_Select:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:212    .text.Servo_Motor_Type_Select:00000000 Servo_Motor_Type_Select
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:232    .text.ServeoMotorControl:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:238    .text.ServeoMotorControl:00000000 ServeoMotorControl
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:625    .text.ServeoMotorControl:00000244 $d
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:635    .bss.compare_value:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:639    .bss.compare_value:00000000 compare_value
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:645    .bss.servo_idx:00000000 servo_idx
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:646    .bss.servo_idx:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:648    .bss.servo_motor_instance:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc4c9z2i.s:652    .bss.servo_motor_instance:00000000 servo_motor_instance
+
+UNDEFINED SYMBOLS
+malloc
+HAL_TIM_PWM_Start
+__aeabi_i2d
+__aeabi_dadd
+__aeabi_d2iz

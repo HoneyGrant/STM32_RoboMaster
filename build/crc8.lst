@@ -1,0 +1,291 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"crc8.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.crc_8,"ax",%progbits
+  20              		.align	1
+  21              		.global	crc_8
+  22              		.syntax unified
+  23              		.thumb
+  24              		.thumb_func
+  26              	crc_8:
+  27              	.LVL0:
+  28              	.LFB235:
+  29              		.file 1 "modules/algorithm/crc8.c"
+   1:modules/algorithm/crc8.c **** #include "crc8.h"
+   2:modules/algorithm/crc8.c **** 
+   3:modules/algorithm/crc8.c **** /*
+   4:modules/algorithm/crc8.c ****  * static uint8_t sht75_crc_table[];
+   5:modules/algorithm/crc8.c ****  *
+   6:modules/algorithm/crc8.c ****  * The SHT75 humidity sensor is capable of calculating an 8 bit CRC checksum to
+   7:modules/algorithm/crc8.c ****  * ensure data integrity. The lookup table crc_table[] is used to recalculate
+   8:modules/algorithm/crc8.c ****  * the CRC.
+   9:modules/algorithm/crc8.c ****  */
+  10:modules/algorithm/crc8.c **** static uint8_t sht75_crc_table[] =
+  11:modules/algorithm/crc8.c ****     {
+  12:modules/algorithm/crc8.c ****         0, 49, 98, 83, 196, 245, 166, 151, 185, 136, 219, 234, 125, 76, 31, 46,
+  13:modules/algorithm/crc8.c ****         67, 114, 33, 16, 135, 182, 229, 212, 250, 203, 152, 169, 62, 15, 92, 109,
+  14:modules/algorithm/crc8.c ****         134, 183, 228, 213, 66, 115, 32, 17, 63, 14, 93, 108, 251, 202, 153, 168,
+  15:modules/algorithm/crc8.c ****         197, 244, 167, 150, 1, 48, 99, 82, 124, 77, 30, 47, 184, 137, 218, 235,
+  16:modules/algorithm/crc8.c ****         61, 12, 95, 110, 249, 200, 155, 170, 132, 181, 230, 215, 64, 113, 34, 19,
+  17:modules/algorithm/crc8.c ****         126, 79, 28, 45, 186, 139, 216, 233, 199, 246, 165, 148, 3, 50, 97, 80,
+  18:modules/algorithm/crc8.c ****         187, 138, 217, 232, 127, 78, 29, 44, 2, 51, 96, 81, 198, 247, 164, 149,
+  19:modules/algorithm/crc8.c ****         248, 201, 154, 171, 60, 13, 94, 111, 65, 112, 35, 18, 133, 180, 231, 214,
+  20:modules/algorithm/crc8.c ****         122, 75, 24, 41, 190, 143, 220, 237, 195, 242, 161, 144, 7, 54, 101, 84,
+  21:modules/algorithm/crc8.c ****         57, 8, 91, 106, 253, 204, 159, 174, 128, 177, 226, 211, 68, 117, 38, 23,
+  22:modules/algorithm/crc8.c ****         252, 205, 158, 175, 56, 9, 90, 107, 69, 116, 39, 22, 129, 176, 227, 210,
+  23:modules/algorithm/crc8.c ****         191, 142, 221, 236, 123, 74, 25, 40, 6, 55, 100, 85, 194, 243, 160, 145,
+  24:modules/algorithm/crc8.c ****         71, 118, 37, 20, 131, 178, 225, 208, 254, 207, 156, 173, 58, 11, 88, 105,
+  25:modules/algorithm/crc8.c ****         4, 53, 102, 87, 192, 241, 162, 147, 189, 140, 223, 238, 121, 72, 27, 42,
+  26:modules/algorithm/crc8.c ****         193, 240, 163, 146, 5, 52, 103, 86, 120, 73, 26, 43, 188, 141, 222, 239,
+  27:modules/algorithm/crc8.c ****         130, 179, 224, 209, 70, 119, 36, 21, 59, 10, 89, 104, 255, 206, 157, 172};
+  28:modules/algorithm/crc8.c **** 
+  29:modules/algorithm/crc8.c **** /*
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s 			page 2
+
+
+  30:modules/algorithm/crc8.c ****  * uint8_t crc_8( const unsigned char *input_str, size_t num_bytes );
+  31:modules/algorithm/crc8.c ****  *
+  32:modules/algorithm/crc8.c ****  *函数crc_8()计算输入字符串的8位宽crc
+  33:modules/algorithm/crc8.c ****  *给定长度。
+  34:modules/algorithm/crc8.c ****  */
+  35:modules/algorithm/crc8.c **** uint8_t crc_8(const uint8_t *input_str, uint16_t num_bytes)
+  36:modules/algorithm/crc8.c **** {
+  30              		.loc 1 36 1 view -0
+  31              		.cfi_startproc
+  32              		@ args = 0, pretend = 0, frame = 0
+  33              		@ frame_needed = 0, uses_anonymous_args = 0
+  34              		@ link register save eliminated.
+  37:modules/algorithm/crc8.c ****     uint16_t a;
+  35              		.loc 1 37 5 view .LVU1
+  38:modules/algorithm/crc8.c ****     uint8_t crc;
+  36              		.loc 1 38 5 view .LVU2
+  39:modules/algorithm/crc8.c ****     const uint8_t *ptr;
+  37              		.loc 1 39 5 view .LVU3
+  40:modules/algorithm/crc8.c **** 
+  41:modules/algorithm/crc8.c ****     crc = CRC_START_8;
+  38              		.loc 1 41 5 view .LVU4
+  42:modules/algorithm/crc8.c ****     ptr = input_str;
+  39              		.loc 1 42 5 view .LVU5
+  43:modules/algorithm/crc8.c ****     if (ptr != NULL)
+  40              		.loc 1 43 5 view .LVU6
+  41              		.loc 1 43 8 is_stmt 0 view .LVU7
+  42 0000 0346     		mov	r3, r0
+  43 0002 10B1     		cbz	r0, .L6
+  41:modules/algorithm/crc8.c ****     ptr = input_str;
+  44              		.loc 1 41 9 view .LVU8
+  45 0004 0020     		movs	r0, #0
+  46              	.LVL1:
+  44:modules/algorithm/crc8.c ****         for (a = 0; a < num_bytes; a++)
+  47              		.loc 1 44 16 view .LVU9
+  48 0006 0246     		mov	r2, r0
+  49 0008 09E0     		b	.L2
+  50              	.LVL2:
+  51              	.L6:
+  52              		.loc 1 44 16 view .LVU10
+  53 000a 7047     		bx	lr
+  54              	.LVL3:
+  55              	.L4:
+  45:modules/algorithm/crc8.c ****         {
+  46:modules/algorithm/crc8.c ****             crc = sht75_crc_table[(*ptr++) ^ crc];
+  56              		.loc 1 46 13 is_stmt 1 discriminator 3 view .LVU11
+  57              		.loc 1 46 36 is_stmt 0 discriminator 3 view .LVU12
+  58 000c 13F801CB 		ldrb	ip, [r3], #1	@ zero_extendqisi2
+  59              	.LVL4:
+  60              		.loc 1 46 44 discriminator 3 view .LVU13
+  61 0010 8CEA000C 		eor	ip, ip, r0
+  62              		.loc 1 46 17 discriminator 3 view .LVU14
+  63 0014 0348     		ldr	r0, .L7
+  64              	.LVL5:
+  65              		.loc 1 46 17 discriminator 3 view .LVU15
+  66 0016 10F80C00 		ldrb	r0, [r0, ip]	@ zero_extendqisi2
+  67              	.LVL6:
+  44:modules/algorithm/crc8.c ****         for (a = 0; a < num_bytes; a++)
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s 			page 3
+
+
+  68              		.loc 1 44 36 is_stmt 1 discriminator 3 view .LVU16
+  44:modules/algorithm/crc8.c ****         for (a = 0; a < num_bytes; a++)
+  69              		.loc 1 44 37 is_stmt 0 discriminator 3 view .LVU17
+  70 001a 0132     		adds	r2, r2, #1
+  71              	.LVL7:
+  44:modules/algorithm/crc8.c ****         for (a = 0; a < num_bytes; a++)
+  72              		.loc 1 44 37 discriminator 3 view .LVU18
+  73 001c 92B2     		uxth	r2, r2
+  74              	.LVL8:
+  75              	.L2:
+  44:modules/algorithm/crc8.c ****         for (a = 0; a < num_bytes; a++)
+  76              		.loc 1 44 21 is_stmt 1 discriminator 1 view .LVU19
+  44:modules/algorithm/crc8.c ****         for (a = 0; a < num_bytes; a++)
+  77              		.loc 1 44 9 is_stmt 0 discriminator 1 view .LVU20
+  78 001e 8A42     		cmp	r2, r1
+  79 0020 F4D3     		bcc	.L4
+  47:modules/algorithm/crc8.c ****         }
+  48:modules/algorithm/crc8.c ****     return crc;
+  80              		.loc 1 48 5 is_stmt 1 view .LVU21
+  49:modules/algorithm/crc8.c **** }
+  81              		.loc 1 49 1 is_stmt 0 view .LVU22
+  82 0022 7047     		bx	lr
+  83              	.L8:
+  84              		.align	2
+  85              	.L7:
+  86 0024 00000000 		.word	.LANCHOR0
+  87              		.cfi_endproc
+  88              	.LFE235:
+  90              		.section	.text.update_crc_8,"ax",%progbits
+  91              		.align	1
+  92              		.global	update_crc_8
+  93              		.syntax unified
+  94              		.thumb
+  95              		.thumb_func
+  97              	update_crc_8:
+  98              	.LVL9:
+  99              	.LFB236:
+  50:modules/algorithm/crc8.c **** 
+  51:modules/algorithm/crc8.c **** /*
+  52:modules/algorithm/crc8.c ****  * uint8_t update_crc_8( unsigned char crc, unsigned char val );
+  53:modules/algorithm/crc8.c ****  *
+  54:modules/algorithm/crc8.c ****  *给定一个数据字节和循环冗余校验值的前一个值
+  55:modules/algorithm/crc8.c ****  *update_crc_8()计算并返回数据的新的实际crc值
+  56:modules/algorithm/crc8.c ****  */
+  57:modules/algorithm/crc8.c **** 
+  58:modules/algorithm/crc8.c **** uint8_t update_crc_8(uint8_t crc, uint8_t val)
+  59:modules/algorithm/crc8.c **** {
+ 100              		.loc 1 59 1 is_stmt 1 view -0
+ 101              		.cfi_startproc
+ 102              		@ args = 0, pretend = 0, frame = 0
+ 103              		@ frame_needed = 0, uses_anonymous_args = 0
+ 104              		@ link register save eliminated.
+  60:modules/algorithm/crc8.c ****     return sht75_crc_table[val ^ crc];
+ 105              		.loc 1 60 5 view .LVU24
+ 106              		.loc 1 60 32 is_stmt 0 view .LVU25
+ 107 0000 4140     		eors	r1, r1, r0
+ 108              	.LVL10:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s 			page 4
+
+
+  61:modules/algorithm/crc8.c **** }
+ 109              		.loc 1 61 1 view .LVU26
+ 110 0002 014B     		ldr	r3, .L10
+ 111 0004 585C     		ldrb	r0, [r3, r1]	@ zero_extendqisi2
+ 112              	.LVL11:
+ 113              		.loc 1 61 1 view .LVU27
+ 114 0006 7047     		bx	lr
+ 115              	.L11:
+ 116              		.align	2
+ 117              	.L10:
+ 118 0008 00000000 		.word	.LANCHOR0
+ 119              		.cfi_endproc
+ 120              	.LFE236:
+ 122              		.section	.rodata.sht75_crc_table,"a"
+ 123              		.align	2
+ 124              		.set	.LANCHOR0,. + 0
+ 127              	sht75_crc_table:
+ 128 0000 00316253 		.ascii	"\0001bS\304\365\246\227\271\210\333\352}L\037.Cr!\020"
+ 128      C4F5A697 
+ 128      B988DBEA 
+ 128      7D4C1F2E 
+ 128      43722110 
+ 129 0014 87B6E5D4 		.ascii	"\207\266\345\324\372\313\230\251>\017\\m\206\267\344"
+ 129      FACB98A9 
+ 129      3E0F5C6D 
+ 129      86B7E4
+ 130 0023 D5427320 		.ascii	"\325Bs \021?\016]l\373\312\231\250\305\364\247\226\001"
+ 130      113F0E5D 
+ 130      6CFBCA99 
+ 130      A8C5F4A7 
+ 130      9601
+ 131 0035 3063527C 		.ascii	"0cR|M\036/\270\211\332\353=\014_n\371\310\233\252\204"
+ 131      4D1E2FB8 
+ 131      89DAEB3D 
+ 131      0C5F6EF9 
+ 131      C89BAA84 
+ 132 0049 B5E6D740 		.ascii	"\265\346\327@q\"\023~O\034-\272\213\330\351\307\366"
+ 132      7122137E 
+ 132      4F1C2DBA 
+ 132      8BD8E9C7 
+ 132      F6
+ 133 005a A5940332 		.ascii	"\245\224\0032aP\273\212\331\350\177N\035,\0023`Q\306"
+ 133      6150BB8A 
+ 133      D9E87F4E 
+ 133      1D2C0233 
+ 133      6051C6
+ 134 006d F7A495F8 		.ascii	"\367\244\225\370\311\232\253<\015^oAp#\022\205\264\347"
+ 134      C99AAB3C 
+ 134      0D5E6F41 
+ 134      70231285 
+ 134      B4E7
+ 135 007f D67A4B18 		.ascii	"\326zK\030)\276\217\334\355\303\362\241\220\0076eT9"
+ 135      29BE8FDC 
+ 135      EDC3F2A1 
+ 135      90073665 
+ 135      5439
+ 136 0091 085B6AFD 		.ascii	"\010[j\375\314\237\256\200\261\342\323Du&\027\374\315"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s 			page 5
+
+
+ 136      CC9FAE80 
+ 136      B1E2D344 
+ 136      752617FC 
+ 136      CD
+ 137 00a2 9EAF3809 		.ascii	"\236\2578\011ZkEt'\026\201\260\343\322\277\216\335\354"
+ 137      5A6B4574 
+ 137      271681B0 
+ 137      E3D2BF8E 
+ 137      DDEC
+ 138 00b4 7B4A1928 		.ascii	"{J\031(\0067dU\302\363\240\221Gv%\024\203\262\341\320"
+ 138      06376455 
+ 138      C2F3A091 
+ 138      47762514 
+ 138      83B2E1D0 
+ 139 00c8 FECF9CAD 		.ascii	"\376\317\234\255:\013Xi\0045fW\300\361\242\223\275\214"
+ 139      3A0B5869 
+ 139      04356657 
+ 139      C0F1A293 
+ 139      BD8C
+ 140 00da DFEE7948 		.ascii	"\337\356yH\033*\301\360\243\222\0054gVxI\032+\274\215"
+ 140      1B2AC1F0 
+ 140      A3920534 
+ 140      67567849 
+ 140      1A2BBC8D 
+ 141 00ee DEEF82B3 		.ascii	"\336\357\202\263\340\321Fw$\025;\012Yh\377\316\235\254"
+ 141      E0D14677 
+ 141      24153B0A 
+ 141      5968FFCE 
+ 141      9DAC
+ 142              		.text
+ 143              	.Letext0:
+ 144              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 145              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s 			page 6
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 crc8.c
+C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s:20     .text.crc_8:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s:26     .text.crc_8:00000000 crc_8
+C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s:86     .text.crc_8:00000024 $d
+C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s:91     .text.update_crc_8:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s:97     .text.update_crc_8:00000000 update_crc_8
+C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s:118    .text.update_crc_8:00000008 $d
+C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s:123    .rodata.sht75_crc_table:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\ccrLF0lm.s:127    .rodata.sht75_crc_table:00000000 sht75_crc_table
+
+NO UNDEFINED SYMBOLS

@@ -1,0 +1,832 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"can_comm.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.CANCommResetRx,"ax",%progbits
+  20              		.align	1
+  21              		.syntax unified
+  22              		.thumb
+  23              		.thumb_func
+  25              	CANCommResetRx:
+  26              	.LVL0:
+  27              	.LFB238:
+  28              		.file 1 "modules/can_comm/can_comm.c"
+   1:modules/can_comm/can_comm.c **** #include "can_comm.h"
+   2:modules/can_comm/can_comm.c **** #include "memory.h"
+   3:modules/can_comm/can_comm.c **** #include "stdlib.h"
+   4:modules/can_comm/can_comm.c **** #include "crc8.h"
+   5:modules/can_comm/can_comm.c **** #include "bsp_dwt.h"
+   6:modules/can_comm/can_comm.c **** #include "bsp_log.h"
+   7:modules/can_comm/can_comm.c **** 
+   8:modules/can_comm/can_comm.c **** /**
+   9:modules/can_comm/can_comm.c ****  * @brief 重置CAN comm的接收状态和buffer
+  10:modules/can_comm/can_comm.c ****  *
+  11:modules/can_comm/can_comm.c ****  * @param ins 需要重置的实例
+  12:modules/can_comm/can_comm.c ****  */
+  13:modules/can_comm/can_comm.c **** static void CANCommResetRx(CANCommInstance *ins)
+  14:modules/can_comm/can_comm.c **** {
+  29              		.loc 1 14 1 view -0
+  30              		.cfi_startproc
+  31              		@ args = 0, pretend = 0, frame = 0
+  32              		@ frame_needed = 0, uses_anonymous_args = 0
+  33              		.loc 1 14 1 is_stmt 0 view .LVU1
+  34 0000 10B5     		push	{r4, lr}
+  35              	.LCFI0:
+  36              		.cfi_def_cfa_offset 8
+  37              		.cfi_offset 4, -8
+  38              		.cfi_offset 14, -4
+  39 0002 0446     		mov	r4, r0
+  15:modules/can_comm/can_comm.c ****     // 当前已经收到的buffer清零
+  16:modules/can_comm/can_comm.c ****     memset(ins->raw_recvbuf, 0, ins->cur_recv_len);
+  40              		.loc 1 16 5 is_stmt 1 view .LVU2
+  41 0004 90F8C520 		ldrb	r2, [r0, #197]	@ zero_extendqisi2
+  42 0008 0021     		movs	r1, #0
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 2
+
+
+  43 000a 4830     		adds	r0, r0, #72
+  44              	.LVL1:
+  45              		.loc 1 16 5 is_stmt 0 view .LVU3
+  46 000c FFF7FEFF 		bl	memset
+  47              	.LVL2:
+  17:modules/can_comm/can_comm.c ****     ins->recv_state = 0;   // 接收状态重置
+  48              		.loc 1 17 5 is_stmt 1 view .LVU4
+  49              		.loc 1 17 21 is_stmt 0 view .LVU5
+  50 0010 0023     		movs	r3, #0
+  51 0012 84F8C430 		strb	r3, [r4, #196]
+  18:modules/can_comm/can_comm.c ****     ins->cur_recv_len = 0; // 当前已经收到的长度重置
+  52              		.loc 1 18 5 is_stmt 1 view .LVU6
+  53              		.loc 1 18 23 is_stmt 0 view .LVU7
+  54 0016 84F8C530 		strb	r3, [r4, #197]
+  19:modules/can_comm/can_comm.c **** }
+  55              		.loc 1 19 1 view .LVU8
+  56 001a 10BD     		pop	{r4, pc}
+  57              		.loc 1 19 1 view .LVU9
+  58              		.cfi_endproc
+  59              	.LFE238:
+  61              		.section	.text.CANCommLostCallback,"ax",%progbits
+  62              		.align	1
+  63              		.syntax unified
+  64              		.thumb
+  65              		.thumb_func
+  67              	CANCommLostCallback:
+  68              	.LVL3:
+  69              	.LFB240:
+  20:modules/can_comm/can_comm.c **** 
+  21:modules/can_comm/can_comm.c **** /**
+  22:modules/can_comm/can_comm.c ****  * @brief cancomm的接收回调函数
+  23:modules/can_comm/can_comm.c ****  *
+  24:modules/can_comm/can_comm.c ****  * @param _instance
+  25:modules/can_comm/can_comm.c ****  */
+  26:modules/can_comm/can_comm.c **** static void CANCommRxCallback(CANInstance *_instance)
+  27:modules/can_comm/can_comm.c **** {
+  28:modules/can_comm/can_comm.c ****     CANCommInstance *comm = (CANCommInstance *)_instance->id; // 注意写法,将can instance的id�
+  29:modules/can_comm/can_comm.c **** 
+  30:modules/can_comm/can_comm.c ****     /* 当前接收状态判断 */
+  31:modules/can_comm/can_comm.c ****     if (_instance->rx_buff[0] == CAN_COMM_HEADER && comm->recv_state == 0) // 之前尚未开始接
+  32:modules/can_comm/can_comm.c ****     {
+  33:modules/can_comm/can_comm.c ****         if (_instance->rx_buff[1] == comm->recv_data_len) // 如果这一包里的datalen也等于�
+  34:modules/can_comm/can_comm.c ****         {
+  35:modules/can_comm/can_comm.c ****             comm->recv_state = 1; // 设置接收状态为1,说明已经开始接收
+  36:modules/can_comm/can_comm.c ****         }
+  37:modules/can_comm/can_comm.c ****         else
+  38:modules/can_comm/can_comm.c ****             return; // 直接跳过即可
+  39:modules/can_comm/can_comm.c ****     }
+  40:modules/can_comm/can_comm.c **** 
+  41:modules/can_comm/can_comm.c ****     if (comm->recv_state) // 已经收到过帧头
+  42:modules/can_comm/can_comm.c ****     {
+  43:modules/can_comm/can_comm.c ****         // 如果已经接收到的长度加上当前一包的长度大于总buf len,说明接收�
+  44:modules/can_comm/can_comm.c ****         if (comm->cur_recv_len + _instance->rx_len > comm->recv_buf_len)
+  45:modules/can_comm/can_comm.c ****         {
+  46:modules/can_comm/can_comm.c ****             CANCommResetRx(comm);
+  47:modules/can_comm/can_comm.c ****             return; // 重置状态然后返回
+  48:modules/can_comm/can_comm.c ****         }
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 3
+
+
+  49:modules/can_comm/can_comm.c **** 
+  50:modules/can_comm/can_comm.c ****         // 直接把当前接收到的数据接到buffer后面
+  51:modules/can_comm/can_comm.c ****         memcpy(comm->raw_recvbuf + comm->cur_recv_len, _instance->rx_buff, _instance->rx_len);
+  52:modules/can_comm/can_comm.c ****         comm->cur_recv_len += _instance->rx_len;
+  53:modules/can_comm/can_comm.c **** 
+  54:modules/can_comm/can_comm.c ****         // 收完这一包以后刚好等于总buf len,说明已经收完了
+  55:modules/can_comm/can_comm.c ****         if (comm->cur_recv_len == comm->recv_buf_len)
+  56:modules/can_comm/can_comm.c ****         {
+  57:modules/can_comm/can_comm.c ****             // 如果buff里本tail的位置等于CAN_COMM_TAIL
+  58:modules/can_comm/can_comm.c ****             if (comm->raw_recvbuf[comm->recv_buf_len - 1] == CAN_COMM_TAIL)
+  59:modules/can_comm/can_comm.c ****             { // 通过校验,复制数据到unpack_data中
+  60:modules/can_comm/can_comm.c ****                 if (comm->raw_recvbuf[comm->recv_buf_len - 2] == crc_8(comm->raw_recvbuf + 2, comm-
+  61:modules/can_comm/can_comm.c ****                 { // 数据量大的话考虑使用DMA
+  62:modules/can_comm/can_comm.c ****                     memcpy(comm->unpacked_recv_data, comm->raw_recvbuf + 2, comm->recv_data_len);
+  63:modules/can_comm/can_comm.c ****                     comm->update_flag = 1;           // 数据更新flag置为1
+  64:modules/can_comm/can_comm.c ****                     DaemonReload(comm->comm_daemon); // 重载daemon,避免数据更新后一直不
+  65:modules/can_comm/can_comm.c ****                 }
+  66:modules/can_comm/can_comm.c ****             }
+  67:modules/can_comm/can_comm.c ****             CANCommResetRx(comm);
+  68:modules/can_comm/can_comm.c ****             return; // 重置状态然后返回
+  69:modules/can_comm/can_comm.c ****         }
+  70:modules/can_comm/can_comm.c ****     }
+  71:modules/can_comm/can_comm.c **** }
+  72:modules/can_comm/can_comm.c **** 
+  73:modules/can_comm/can_comm.c **** static void CANCommLostCallback(void *cancomm)
+  74:modules/can_comm/can_comm.c **** {
+  70              		.loc 1 74 1 is_stmt 1 view -0
+  71              		.cfi_startproc
+  72              		@ args = 0, pretend = 0, frame = 0
+  73              		@ frame_needed = 0, uses_anonymous_args = 0
+  74              		.loc 1 74 1 is_stmt 0 view .LVU11
+  75 0000 08B5     		push	{r3, lr}
+  76              	.LCFI1:
+  77              		.cfi_def_cfa_offset 8
+  78              		.cfi_offset 3, -8
+  79              		.cfi_offset 14, -4
+  75:modules/can_comm/can_comm.c ****     CANCommInstance *comm = (CANCommInstance *)cancomm;
+  80              		.loc 1 75 5 is_stmt 1 view .LVU12
+  81              	.LVL4:
+  76:modules/can_comm/can_comm.c ****     CANCommResetRx(comm);
+  82              		.loc 1 76 5 view .LVU13
+  83 0002 FFF7FEFF 		bl	CANCommResetRx
+  84              	.LVL5:
+  77:modules/can_comm/can_comm.c ****     LOGWARNING("[can_comm] can comm rx[%d] lost, reset rx state.", &comm->can_ins->rx_id);
+  85              		.loc 1 77 90 view .LVU14
+  78:modules/can_comm/can_comm.c **** }
+  86              		.loc 1 78 1 is_stmt 0 view .LVU15
+  87 0006 08BD     		pop	{r3, pc}
+  88              		.cfi_endproc
+  89              	.LFE240:
+  91              		.section	.text.CANCommRxCallback,"ax",%progbits
+  92              		.align	1
+  93              		.syntax unified
+  94              		.thumb
+  95              		.thumb_func
+  97              	CANCommRxCallback:
+  98              	.LVL6:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 4
+
+
+  99              	.LFB239:
+  27:modules/can_comm/can_comm.c ****     CANCommInstance *comm = (CANCommInstance *)_instance->id; // 注意写法,将can instance的id�
+ 100              		.loc 1 27 1 is_stmt 1 view -0
+ 101              		.cfi_startproc
+ 102              		@ args = 0, pretend = 0, frame = 0
+ 103              		@ frame_needed = 0, uses_anonymous_args = 0
+  27:modules/can_comm/can_comm.c ****     CANCommInstance *comm = (CANCommInstance *)_instance->id; // 注意写法,将can instance的id�
+ 104              		.loc 1 27 1 is_stmt 0 view .LVU17
+ 105 0000 70B5     		push	{r4, r5, r6, lr}
+ 106              	.LCFI2:
+ 107              		.cfi_def_cfa_offset 16
+ 108              		.cfi_offset 4, -16
+ 109              		.cfi_offset 5, -12
+ 110              		.cfi_offset 6, -8
+ 111              		.cfi_offset 14, -4
+ 112 0002 0446     		mov	r4, r0
+  28:modules/can_comm/can_comm.c **** 
+ 113              		.loc 1 28 5 is_stmt 1 view .LVU18
+  28:modules/can_comm/can_comm.c **** 
+ 114              		.loc 1 28 22 is_stmt 0 view .LVU19
+ 115 0004 D0F83D50 		ldr	r5, [r0, #61]	@ unaligned
+ 116              	.LVL7:
+  31:modules/can_comm/can_comm.c ****     {
+ 117              		.loc 1 31 5 is_stmt 1 view .LVU20
+  31:modules/can_comm/can_comm.c ****     {
+ 118              		.loc 1 31 27 is_stmt 0 view .LVU21
+ 119 0008 90F82C30 		ldrb	r3, [r0, #44]	@ zero_extendqisi2
+  31:modules/can_comm/can_comm.c ****     {
+ 120              		.loc 1 31 8 view .LVU22
+ 121 000c 732B     		cmp	r3, #115
+ 122 000e 1FD0     		beq	.L11
+ 123              	.L6:
+  41:modules/can_comm/can_comm.c ****     {
+ 124              		.loc 1 41 5 is_stmt 1 view .LVU23
+  41:modules/can_comm/can_comm.c ****     {
+ 125              		.loc 1 41 13 is_stmt 0 view .LVU24
+ 126 0010 95F8C430 		ldrb	r3, [r5, #196]	@ zero_extendqisi2
+  41:modules/can_comm/can_comm.c ****     {
+ 127              		.loc 1 41 8 view .LVU25
+ 128 0014 DBB1     		cbz	r3, .L5
+  44:modules/can_comm/can_comm.c ****         {
+ 129              		.loc 1 44 9 is_stmt 1 view .LVU26
+  44:modules/can_comm/can_comm.c ****         {
+ 130              		.loc 1 44 17 is_stmt 0 view .LVU27
+ 131 0016 95F8C530 		ldrb	r3, [r5, #197]	@ zero_extendqisi2
+  44:modules/can_comm/can_comm.c ****         {
+ 132              		.loc 1 44 43 view .LVU28
+ 133 001a 94F83820 		ldrb	r2, [r4, #56]	@ zero_extendqisi2
+  44:modules/can_comm/can_comm.c ****         {
+ 134              		.loc 1 44 32 view .LVU29
+ 135 001e 9818     		adds	r0, r3, r2
+ 136              	.LVL8:
+  44:modules/can_comm/can_comm.c ****         {
+ 137              		.loc 1 44 58 view .LVU30
+ 138 0020 95F84710 		ldrb	r1, [r5, #71]	@ zero_extendqisi2
+  44:modules/can_comm/can_comm.c ****         {
+ 139              		.loc 1 44 12 view .LVU31
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 5
+
+
+ 140 0024 8842     		cmp	r0, r1
+ 141 0026 21DC     		bgt	.L12
+  51:modules/can_comm/can_comm.c ****         comm->cur_recv_len += _instance->rx_len;
+ 142              		.loc 1 51 9 is_stmt 1 view .LVU32
+  51:modules/can_comm/can_comm.c ****         comm->cur_recv_len += _instance->rx_len;
+ 143              		.loc 1 51 16 is_stmt 0 view .LVU33
+ 144 0028 05F14800 		add	r0, r5, #72
+  51:modules/can_comm/can_comm.c ****         comm->cur_recv_len += _instance->rx_len;
+ 145              		.loc 1 51 9 view .LVU34
+ 146 002c 04F12C01 		add	r1, r4, #44
+ 147 0030 1844     		add	r0, r0, r3
+ 148 0032 FFF7FEFF 		bl	memcpy
+ 149              	.LVL9:
+  52:modules/can_comm/can_comm.c **** 
+ 150              		.loc 1 52 9 is_stmt 1 view .LVU35
+  52:modules/can_comm/can_comm.c **** 
+ 151              		.loc 1 52 40 is_stmt 0 view .LVU36
+ 152 0036 94F83830 		ldrb	r3, [r4, #56]	@ zero_extendqisi2
+  52:modules/can_comm/can_comm.c **** 
+ 153              		.loc 1 52 28 view .LVU37
+ 154 003a 95F8C520 		ldrb	r2, [r5, #197]	@ zero_extendqisi2
+ 155 003e 1344     		add	r3, r3, r2
+ 156 0040 DBB2     		uxtb	r3, r3
+ 157 0042 85F8C530 		strb	r3, [r5, #197]
+  55:modules/can_comm/can_comm.c ****         {
+ 158              		.loc 1 55 9 is_stmt 1 view .LVU38
+  55:modules/can_comm/can_comm.c ****         {
+ 159              		.loc 1 55 39 is_stmt 0 view .LVU39
+ 160 0046 95F84720 		ldrb	r2, [r5, #71]	@ zero_extendqisi2
+  55:modules/can_comm/can_comm.c ****         {
+ 161              		.loc 1 55 12 view .LVU40
+ 162 004a 9342     		cmp	r3, r2
+ 163 004c 12D0     		beq	.L13
+ 164              	.LVL10:
+ 165              	.L5:
+  71:modules/can_comm/can_comm.c **** 
+ 166              		.loc 1 71 1 view .LVU41
+ 167 004e 70BD     		pop	{r4, r5, r6, pc}
+ 168              	.LVL11:
+ 169              	.L11:
+  31:modules/can_comm/can_comm.c ****     {
+ 170              		.loc 1 31 57 discriminator 1 view .LVU42
+ 171 0050 95F8C430 		ldrb	r3, [r5, #196]	@ zero_extendqisi2
+  31:modules/can_comm/can_comm.c ****     {
+ 172              		.loc 1 31 50 discriminator 1 view .LVU43
+ 173 0054 002B     		cmp	r3, #0
+ 174 0056 DBD1     		bne	.L6
+  33:modules/can_comm/can_comm.c ****         {
+ 175              		.loc 1 33 9 is_stmt 1 view .LVU44
+  33:modules/can_comm/can_comm.c ****         {
+ 176              		.loc 1 33 31 is_stmt 0 view .LVU45
+ 177 0058 90F82D20 		ldrb	r2, [r0, #45]	@ zero_extendqisi2
+  33:modules/can_comm/can_comm.c ****         {
+ 178              		.loc 1 33 42 view .LVU46
+ 179 005c 95F84630 		ldrb	r3, [r5, #70]	@ zero_extendqisi2
+  33:modules/can_comm/can_comm.c ****         {
+ 180              		.loc 1 33 12 view .LVU47
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 6
+
+
+ 181 0060 9A42     		cmp	r2, r3
+ 182 0062 F4D1     		bne	.L5
+  35:modules/can_comm/can_comm.c ****         }
+ 183              		.loc 1 35 13 is_stmt 1 view .LVU48
+  35:modules/can_comm/can_comm.c ****         }
+ 184              		.loc 1 35 30 is_stmt 0 view .LVU49
+ 185 0064 0123     		movs	r3, #1
+ 186 0066 85F8C430 		strb	r3, [r5, #196]
+ 187 006a D1E7     		b	.L6
+ 188              	.LVL12:
+ 189              	.L12:
+  46:modules/can_comm/can_comm.c ****             return; // 重置状态然后返回
+ 190              		.loc 1 46 13 is_stmt 1 view .LVU50
+ 191 006c 2846     		mov	r0, r5
+ 192 006e FFF7FEFF 		bl	CANCommResetRx
+ 193              	.LVL13:
+  47:modules/can_comm/can_comm.c ****         }
+ 194              		.loc 1 47 13 view .LVU51
+ 195 0072 ECE7     		b	.L5
+ 196              	.L13:
+  58:modules/can_comm/can_comm.c ****             { // 通过校验,复制数据到unpack_data中
+ 197              		.loc 1 58 13 view .LVU52
+  58:modules/can_comm/can_comm.c ****             { // 通过校验,复制数据到unpack_data中
+ 198              		.loc 1 58 54 is_stmt 0 view .LVU53
+ 199 0074 531E     		subs	r3, r2, #1
+  58:modules/can_comm/can_comm.c ****             { // 通过校验,复制数据到unpack_data中
+ 200              		.loc 1 58 34 view .LVU54
+ 201 0076 2B44     		add	r3, r3, r5
+ 202 0078 93F84830 		ldrb	r3, [r3, #72]	@ zero_extendqisi2
+  58:modules/can_comm/can_comm.c ****             { // 通过校验,复制数据到unpack_data中
+ 203              		.loc 1 58 16 view .LVU55
+ 204 007c 652B     		cmp	r3, #101
+ 205 007e 03D0     		beq	.L14
+ 206              	.LVL14:
+ 207              	.L9:
+  67:modules/can_comm/can_comm.c ****             return; // 重置状态然后返回
+ 208              		.loc 1 67 13 is_stmt 1 view .LVU56
+ 209 0080 2846     		mov	r0, r5
+ 210 0082 FFF7FEFF 		bl	CANCommResetRx
+ 211              	.LVL15:
+  68:modules/can_comm/can_comm.c ****         }
+ 212              		.loc 1 68 13 view .LVU57
+ 213 0086 E2E7     		b	.L5
+ 214              	.LVL16:
+ 215              	.L14:
+  60:modules/can_comm/can_comm.c ****                 { // 数据量大的话考虑使用DMA
+ 216              		.loc 1 60 17 view .LVU58
+  60:modules/can_comm/can_comm.c ****                 { // 数据量大的话考虑使用DMA
+ 217              		.loc 1 60 58 is_stmt 0 view .LVU59
+ 218 0088 931E     		subs	r3, r2, #2
+  60:modules/can_comm/can_comm.c ****                 { // 数据量大的话考虑使用DMA
+ 219              		.loc 1 60 38 view .LVU60
+ 220 008a 2B44     		add	r3, r3, r5
+ 221 008c 93F84860 		ldrb	r6, [r3, #72]	@ zero_extendqisi2
+  60:modules/can_comm/can_comm.c ****                 { // 数据量大的话考虑使用DMA
+ 222              		.loc 1 60 66 view .LVU61
+ 223 0090 05F14A04 		add	r4, r5, #74
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 7
+
+
+ 224              	.LVL17:
+  60:modules/can_comm/can_comm.c ****                 { // 数据量大的话考虑使用DMA
+ 225              		.loc 1 60 66 view .LVU62
+ 226 0094 95F84610 		ldrb	r1, [r5, #70]	@ zero_extendqisi2
+ 227 0098 2046     		mov	r0, r4
+ 228 009a FFF7FEFF 		bl	crc_8
+ 229              	.LVL18:
+  60:modules/can_comm/can_comm.c ****                 { // 数据量大的话考虑使用DMA
+ 230              		.loc 1 60 20 view .LVU63
+ 231 009e 8642     		cmp	r6, r0
+ 232 00a0 EED1     		bne	.L9
+  62:modules/can_comm/can_comm.c ****                     comm->update_flag = 1;           // 数据更新flag置为1
+ 233              		.loc 1 62 21 is_stmt 1 view .LVU64
+ 234 00a2 95F84620 		ldrb	r2, [r5, #70]	@ zero_extendqisi2
+ 235 00a6 2146     		mov	r1, r4
+ 236 00a8 05F18800 		add	r0, r5, #136
+ 237 00ac FFF7FEFF 		bl	memcpy
+ 238              	.LVL19:
+  63:modules/can_comm/can_comm.c ****                     DaemonReload(comm->comm_daemon); // 重载daemon,避免数据更新后一直不
+ 239              		.loc 1 63 21 view .LVU65
+  63:modules/can_comm/can_comm.c ****                     DaemonReload(comm->comm_daemon); // 重载daemon,避免数据更新后一直不
+ 240              		.loc 1 63 39 is_stmt 0 view .LVU66
+ 241 00b0 0123     		movs	r3, #1
+ 242 00b2 85F8C630 		strb	r3, [r5, #198]
+  64:modules/can_comm/can_comm.c ****                 }
+ 243              		.loc 1 64 21 is_stmt 1 view .LVU67
+ 244 00b6 D5F8C700 		ldr	r0, [r5, #199]	@ unaligned
+ 245 00ba FFF7FEFF 		bl	DaemonReload
+ 246              	.LVL20:
+ 247 00be DFE7     		b	.L9
+ 248              		.cfi_endproc
+ 249              	.LFE239:
+ 251              		.section	.text.CANCommInit,"ax",%progbits
+ 252              		.align	1
+ 253              		.global	CANCommInit
+ 254              		.syntax unified
+ 255              		.thumb
+ 256              		.thumb_func
+ 258              	CANCommInit:
+ 259              	.LVL21:
+ 260              	.LFB241:
+  79:modules/can_comm/can_comm.c **** 
+  80:modules/can_comm/can_comm.c **** CANCommInstance *CANCommInit(CANComm_Init_Config_s *comm_config)
+  81:modules/can_comm/can_comm.c **** {
+ 261              		.loc 1 81 1 view -0
+ 262              		.cfi_startproc
+ 263              		@ args = 0, pretend = 0, frame = 16
+ 264              		@ frame_needed = 0, uses_anonymous_args = 0
+ 265              		.loc 1 81 1 is_stmt 0 view .LVU69
+ 266 0000 30B5     		push	{r4, r5, lr}
+ 267              	.LCFI3:
+ 268              		.cfi_def_cfa_offset 12
+ 269              		.cfi_offset 4, -12
+ 270              		.cfi_offset 5, -8
+ 271              		.cfi_offset 14, -4
+ 272 0002 85B0     		sub	sp, sp, #20
+ 273              	.LCFI4:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 8
+
+
+ 274              		.cfi_def_cfa_offset 32
+ 275 0004 0546     		mov	r5, r0
+  82:modules/can_comm/can_comm.c ****     CANCommInstance *ins = (CANCommInstance *)malloc(sizeof(CANCommInstance));
+ 276              		.loc 1 82 5 is_stmt 1 view .LVU70
+ 277              		.loc 1 82 47 is_stmt 0 view .LVU71
+ 278 0006 CB20     		movs	r0, #203
+ 279              	.LVL22:
+ 280              		.loc 1 82 47 view .LVU72
+ 281 0008 FFF7FEFF 		bl	malloc
+ 282              	.LVL23:
+ 283 000c 0446     		mov	r4, r0
+ 284              	.LVL24:
+  83:modules/can_comm/can_comm.c ****     memset(ins, 0, sizeof(CANCommInstance));
+ 285              		.loc 1 83 5 is_stmt 1 view .LVU73
+ 286 000e CB22     		movs	r2, #203
+ 287 0010 0021     		movs	r1, #0
+ 288 0012 FFF7FEFF 		bl	memset
+ 289              	.LVL25:
+  84:modules/can_comm/can_comm.c **** 
+  85:modules/can_comm/can_comm.c ****     ins->recv_data_len = comm_config->recv_data_len;
+ 290              		.loc 1 85 5 view .LVU74
+ 291              		.loc 1 85 37 is_stmt 0 view .LVU75
+ 292 0016 6B7D     		ldrb	r3, [r5, #21]	@ zero_extendqisi2
+ 293              		.loc 1 85 24 view .LVU76
+ 294 0018 84F84630 		strb	r3, [r4, #70]
+  86:modules/can_comm/can_comm.c ****     ins->recv_buf_len = comm_config->recv_data_len + CAN_COMM_OFFSET_BYTES; // head + datalen + crc
+ 295              		.loc 1 86 5 is_stmt 1 view .LVU77
+ 296              		.loc 1 86 52 is_stmt 0 view .LVU78
+ 297 001c 0433     		adds	r3, r3, #4
+ 298              		.loc 1 86 23 view .LVU79
+ 299 001e 84F84730 		strb	r3, [r4, #71]
+  87:modules/can_comm/can_comm.c ****     ins->send_data_len = comm_config->send_data_len;
+ 300              		.loc 1 87 5 is_stmt 1 view .LVU80
+ 301              		.loc 1 87 37 is_stmt 0 view .LVU81
+ 302 0022 2B7D     		ldrb	r3, [r5, #20]	@ zero_extendqisi2
+ 303              		.loc 1 87 24 view .LVU82
+ 304 0024 2371     		strb	r3, [r4, #4]
+  88:modules/can_comm/can_comm.c ****     ins->send_buf_len = comm_config->send_data_len + CAN_COMM_OFFSET_BYTES;
+ 305              		.loc 1 88 5 is_stmt 1 view .LVU83
+ 306              		.loc 1 88 52 is_stmt 0 view .LVU84
+ 307 0026 1A1D     		adds	r2, r3, #4
+ 308              		.loc 1 88 23 view .LVU85
+ 309 0028 6271     		strb	r2, [r4, #5]
+  89:modules/can_comm/can_comm.c ****     ins->raw_sendbuf[0] = CAN_COMM_HEADER;            // head,直接设置避免每次发送都要�
+ 310              		.loc 1 89 5 is_stmt 1 view .LVU86
+ 311              		.loc 1 89 25 is_stmt 0 view .LVU87
+ 312 002a 7322     		movs	r2, #115
+ 313 002c A271     		strb	r2, [r4, #6]
+  90:modules/can_comm/can_comm.c ****     ins->raw_sendbuf[1] = comm_config->send_data_len; // datalen
+ 314              		.loc 1 90 5 is_stmt 1 view .LVU88
+ 315              		.loc 1 90 25 is_stmt 0 view .LVU89
+ 316 002e E371     		strb	r3, [r4, #7]
+  91:modules/can_comm/can_comm.c ****     ins->raw_sendbuf[comm_config->send_data_len + CAN_COMM_OFFSET_BYTES - 1] = CAN_COMM_TAIL;
+ 317              		.loc 1 91 5 is_stmt 1 view .LVU90
+ 318              		.loc 1 91 73 is_stmt 0 view .LVU91
+ 319 0030 0333     		adds	r3, r3, #3
+ 320              		.loc 1 91 78 view .LVU92
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 9
+
+
+ 321 0032 2344     		add	r3, r3, r4
+ 322 0034 6522     		movs	r2, #101
+ 323 0036 9A71     		strb	r2, [r3, #6]
+  92:modules/can_comm/can_comm.c ****     // can instance的设置
+  93:modules/can_comm/can_comm.c ****     comm_config->can_config.id = ins; // CANComm的实例指针作为CANInstance的id,回调函数�
+ 324              		.loc 1 93 5 is_stmt 1 view .LVU93
+ 325              		.loc 1 93 32 is_stmt 0 view .LVU94
+ 326 0038 2C61     		str	r4, [r5, #16]
+  94:modules/can_comm/can_comm.c ****     comm_config->can_config.can_module_callback = CANCommRxCallback;
+ 327              		.loc 1 94 5 is_stmt 1 view .LVU95
+ 328              		.loc 1 94 49 is_stmt 0 view .LVU96
+ 329 003a 0C4B     		ldr	r3, .L17
+ 330 003c EB60     		str	r3, [r5, #12]
+  95:modules/can_comm/can_comm.c ****     ins->can_ins = CANRegister(&comm_config->can_config);
+ 331              		.loc 1 95 5 is_stmt 1 view .LVU97
+ 332              		.loc 1 95 20 is_stmt 0 view .LVU98
+ 333 003e 2846     		mov	r0, r5
+ 334 0040 FFF7FEFF 		bl	CANRegister
+ 335              	.LVL26:
+ 336              		.loc 1 95 18 view .LVU99
+ 337 0044 2060     		str	r0, [r4]	@ unaligned
+  96:modules/can_comm/can_comm.c **** 
+  97:modules/can_comm/can_comm.c ****     Daemon_Init_Config_s daemon_config = {
+ 338              		.loc 1 97 5 is_stmt 1 view .LVU100
+ 339              		.loc 1 97 26 is_stmt 0 view .LVU101
+ 340 0046 0023     		movs	r3, #0
+ 341 0048 0193     		str	r3, [sp, #4]
+ 342 004a 0293     		str	r3, [sp, #8]
+ 343 004c 0393     		str	r3, [sp, #12]
+  98:modules/can_comm/can_comm.c ****         .callback = CANCommLostCallback,
+  99:modules/can_comm/can_comm.c ****         .owner_id = (void *)ins,
+ 100:modules/can_comm/can_comm.c ****         .reload_count = comm_config->daemon_count,
+ 344              		.loc 1 100 36 view .LVU102
+ 345 004e EB8A     		ldrh	r3, [r5, #22]
+  97:modules/can_comm/can_comm.c ****         .callback = CANCommLostCallback,
+ 346              		.loc 1 97 26 view .LVU103
+ 347 0050 ADF80430 		strh	r3, [sp, #4]	@ movhi
+ 348 0054 064B     		ldr	r3, .L17+4
+ 349 0056 0293     		str	r3, [sp, #8]
+ 350 0058 0394     		str	r4, [sp, #12]
+ 101:modules/can_comm/can_comm.c ****     };
+ 102:modules/can_comm/can_comm.c ****     ins->comm_daemon = DaemonRegister(&daemon_config);
+ 351              		.loc 1 102 5 is_stmt 1 view .LVU104
+ 352              		.loc 1 102 24 is_stmt 0 view .LVU105
+ 353 005a 01A8     		add	r0, sp, #4
+ 354 005c FFF7FEFF 		bl	DaemonRegister
+ 355              	.LVL27:
+ 356              		.loc 1 102 22 view .LVU106
+ 357 0060 C4F8C700 		str	r0, [r4, #199]	@ unaligned
+ 103:modules/can_comm/can_comm.c ****     return ins;
+ 358              		.loc 1 103 5 is_stmt 1 view .LVU107
+ 104:modules/can_comm/can_comm.c **** }
+ 359              		.loc 1 104 1 is_stmt 0 view .LVU108
+ 360 0064 2046     		mov	r0, r4
+ 361 0066 05B0     		add	sp, sp, #20
+ 362              	.LCFI5:
+ 363              		.cfi_def_cfa_offset 12
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 10
+
+
+ 364              		@ sp needed
+ 365 0068 30BD     		pop	{r4, r5, pc}
+ 366              	.LVL28:
+ 367              	.L18:
+ 368              		.loc 1 104 1 view .LVU109
+ 369 006a 00BF     		.align	2
+ 370              	.L17:
+ 371 006c 00000000 		.word	CANCommRxCallback
+ 372 0070 00000000 		.word	CANCommLostCallback
+ 373              		.cfi_endproc
+ 374              	.LFE241:
+ 376              		.section	.text.CANCommSend,"ax",%progbits
+ 377              		.align	1
+ 378              		.global	CANCommSend
+ 379              		.syntax unified
+ 380              		.thumb
+ 381              		.thumb_func
+ 383              	CANCommSend:
+ 384              	.LVL29:
+ 385              	.LFB242:
+ 105:modules/can_comm/can_comm.c **** 
+ 106:modules/can_comm/can_comm.c **** void CANCommSend(CANCommInstance *instance, uint8_t *data)
+ 107:modules/can_comm/can_comm.c **** {
+ 386              		.loc 1 107 1 is_stmt 1 view -0
+ 387              		.cfi_startproc
+ 388              		@ args = 0, pretend = 0, frame = 0
+ 389              		@ frame_needed = 0, uses_anonymous_args = 0
+ 390              		.loc 1 107 1 is_stmt 0 view .LVU111
+ 391 0000 70B5     		push	{r4, r5, r6, lr}
+ 392              	.LCFI6:
+ 393              		.cfi_def_cfa_offset 16
+ 394              		.cfi_offset 4, -16
+ 395              		.cfi_offset 5, -12
+ 396              		.cfi_offset 6, -8
+ 397              		.cfi_offset 14, -4
+ 398 0002 0546     		mov	r5, r0
+ 399 0004 0C46     		mov	r4, r1
+ 108:modules/can_comm/can_comm.c ****     static uint8_t crc8;
+ 400              		.loc 1 108 5 is_stmt 1 view .LVU112
+ 109:modules/can_comm/can_comm.c ****     static uint8_t send_len;
+ 401              		.loc 1 109 5 view .LVU113
+ 110:modules/can_comm/can_comm.c ****     // 将data copy到raw_sendbuf中,计算crc8
+ 111:modules/can_comm/can_comm.c ****     memcpy(instance->raw_sendbuf + 2, data, instance->send_data_len);
+ 402              		.loc 1 111 5 view .LVU114
+ 403              		.loc 1 111 53 is_stmt 0 view .LVU115
+ 404 0006 0679     		ldrb	r6, [r0, #4]	@ zero_extendqisi2
+ 405              		.loc 1 111 5 view .LVU116
+ 406 0008 3246     		mov	r2, r6
+ 407 000a 0830     		adds	r0, r0, #8
+ 408              	.LVL30:
+ 409              		.loc 1 111 5 view .LVU117
+ 410 000c FFF7FEFF 		bl	memcpy
+ 411              	.LVL31:
+ 112:modules/can_comm/can_comm.c ****     crc8 = crc_8(data, instance->send_data_len);
+ 412              		.loc 1 112 5 is_stmt 1 view .LVU118
+ 413              		.loc 1 112 12 is_stmt 0 view .LVU119
+ 414 0010 3146     		mov	r1, r6
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 11
+
+
+ 415 0012 2046     		mov	r0, r4
+ 416 0014 FFF7FEFF 		bl	crc_8
+ 417              	.LVL32:
+ 418              		.loc 1 112 10 view .LVU120
+ 419 0018 114B     		ldr	r3, .L23
+ 420 001a 1870     		strb	r0, [r3]
+ 113:modules/can_comm/can_comm.c ****     instance->raw_sendbuf[2 + instance->send_data_len] = crc8;
+ 421              		.loc 1 113 5 is_stmt 1 view .LVU121
+ 422              		.loc 1 113 39 is_stmt 0 view .LVU122
+ 423 001c 2B79     		ldrb	r3, [r5, #4]	@ zero_extendqisi2
+ 424              		.loc 1 113 29 view .LVU123
+ 425 001e 0233     		adds	r3, r3, #2
+ 426              		.loc 1 113 56 view .LVU124
+ 427 0020 2B44     		add	r3, r3, r5
+ 428 0022 9871     		strb	r0, [r3, #6]
+ 114:modules/can_comm/can_comm.c **** 
+ 115:modules/can_comm/can_comm.c ****     // CAN单次发送最大为8字节,如果超过8字节,需要分包发送
+ 116:modules/can_comm/can_comm.c ****     for (size_t i = 0; i < instance->send_buf_len; i += 8)
+ 429              		.loc 1 116 5 is_stmt 1 view .LVU125
+ 430              	.LBB2:
+ 431              		.loc 1 116 10 view .LVU126
+ 432              	.LVL33:
+ 433              		.loc 1 116 17 is_stmt 0 view .LVU127
+ 434 0024 0024     		movs	r4, #0
+ 435              	.LVL34:
+ 436              		.loc 1 116 5 view .LVU128
+ 437 0026 17E0     		b	.L20
+ 438              	.LVL35:
+ 439              	.L21:
+ 117:modules/can_comm/can_comm.c ****     { // 如果是最后一包,send len将会小于8,要修改CAN的txconf中的DLC位,调用bsp_ca
+ 118:modules/can_comm/can_comm.c ****         send_len = instance->send_buf_len - i >= 8 ? 8 : instance->send_buf_len - i;
+ 440              		.loc 1 118 9 is_stmt 1 discriminator 3 view .LVU129
+ 441              		.loc 1 118 43 is_stmt 0 discriminator 3 view .LVU130
+ 442 0028 091B     		subs	r1, r1, r4
+ 443              		.loc 1 118 56 discriminator 3 view .LVU131
+ 444 002a 0829     		cmp	r1, #8
+ 445 002c 28BF     		it	cs
+ 446 002e 0821     		movcs	r1, #8
+ 447              		.loc 1 118 18 discriminator 3 view .LVU132
+ 448 0030 C9B2     		uxtb	r1, r1
+ 449 0032 0C4E     		ldr	r6, .L23+4
+ 450 0034 3170     		strb	r1, [r6]
+ 119:modules/can_comm/can_comm.c ****         CANSetDLC(instance->can_ins, send_len);
+ 451              		.loc 1 119 9 is_stmt 1 discriminator 3 view .LVU133
+ 452 0036 2868     		ldr	r0, [r5]	@ unaligned
+ 453 0038 FFF7FEFF 		bl	CANSetDLC
+ 454              	.LVL36:
+ 120:modules/can_comm/can_comm.c ****         memcpy(instance->can_ins->tx_buff, instance->raw_sendbuf + i, send_len);
+ 455              		.loc 1 120 9 discriminator 3 view .LVU134
+ 456              		.loc 1 120 24 is_stmt 0 discriminator 3 view .LVU135
+ 457 003c 2946     		mov	r1, r5
+ 458 003e 51F8060B 		ldr	r0, [r1], #6	@ unaligned
+ 459              		.loc 1 120 9 discriminator 3 view .LVU136
+ 460 0042 3278     		ldrb	r2, [r6]	@ zero_extendqisi2
+ 461 0044 2144     		add	r1, r1, r4
+ 462 0046 2430     		adds	r0, r0, #36
+ 463 0048 FFF7FEFF 		bl	memcpy
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 12
+
+
+ 464              	.LVL37:
+ 121:modules/can_comm/can_comm.c ****         CANTransmit(instance->can_ins, 1);
+ 465              		.loc 1 121 9 is_stmt 1 discriminator 3 view .LVU137
+ 466 004c B7EE000A 		vmov.f32	s0, #1.0e+0
+ 467 0050 2868     		ldr	r0, [r5]	@ unaligned
+ 468 0052 FFF7FEFF 		bl	CANTransmit
+ 469              	.LVL38:
+ 116:modules/can_comm/can_comm.c ****     { // 如果是最后一包,send len将会小于8,要修改CAN的txconf中的DLC位,调用bsp_ca
+ 470              		.loc 1 116 52 discriminator 3 view .LVU138
+ 116:modules/can_comm/can_comm.c ****     { // 如果是最后一包,send len将会小于8,要修改CAN的txconf中的DLC位,调用bsp_ca
+ 471              		.loc 1 116 54 is_stmt 0 discriminator 3 view .LVU139
+ 472 0056 0834     		adds	r4, r4, #8
+ 473              	.LVL39:
+ 474              	.L20:
+ 116:modules/can_comm/can_comm.c ****     { // 如果是最后一包,send len将会小于8,要修改CAN的txconf中的DLC位,调用bsp_ca
+ 475              		.loc 1 116 24 is_stmt 1 discriminator 1 view .LVU140
+ 116:modules/can_comm/can_comm.c ****     { // 如果是最后一包,send len将会小于8,要修改CAN的txconf中的DLC位,调用bsp_ca
+ 476              		.loc 1 116 36 is_stmt 0 discriminator 1 view .LVU141
+ 477 0058 6979     		ldrb	r1, [r5, #5]	@ zero_extendqisi2
+ 116:modules/can_comm/can_comm.c ****     { // 如果是最后一包,send len将会小于8,要修改CAN的txconf中的DLC位,调用bsp_ca
+ 478              		.loc 1 116 5 discriminator 1 view .LVU142
+ 479 005a A142     		cmp	r1, r4
+ 480 005c E4D8     		bhi	.L21
+ 481              	.LBE2:
+ 122:modules/can_comm/can_comm.c ****     }
+ 123:modules/can_comm/can_comm.c **** }
+ 482              		.loc 1 123 1 view .LVU143
+ 483 005e 70BD     		pop	{r4, r5, r6, pc}
+ 484              	.LVL40:
+ 485              	.L24:
+ 486              		.loc 1 123 1 view .LVU144
+ 487              		.align	2
+ 488              	.L23:
+ 489 0060 00000000 		.word	.LANCHOR0
+ 490 0064 00000000 		.word	.LANCHOR1
+ 491              		.cfi_endproc
+ 492              	.LFE242:
+ 494              		.section	.text.CANCommGet,"ax",%progbits
+ 495              		.align	1
+ 496              		.global	CANCommGet
+ 497              		.syntax unified
+ 498              		.thumb
+ 499              		.thumb_func
+ 501              	CANCommGet:
+ 502              	.LVL41:
+ 503              	.LFB243:
+ 124:modules/can_comm/can_comm.c **** 
+ 125:modules/can_comm/can_comm.c **** void *CANCommGet(CANCommInstance *instance)
+ 126:modules/can_comm/can_comm.c **** {
+ 504              		.loc 1 126 1 is_stmt 1 view -0
+ 505              		.cfi_startproc
+ 506              		@ args = 0, pretend = 0, frame = 0
+ 507              		@ frame_needed = 0, uses_anonymous_args = 0
+ 508              		@ link register save eliminated.
+ 127:modules/can_comm/can_comm.c ****     instance->update_flag = 0; // 读取后将更新flag置为0
+ 509              		.loc 1 127 5 view .LVU146
+ 510              		.loc 1 127 27 is_stmt 0 view .LVU147
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 13
+
+
+ 511 0000 0023     		movs	r3, #0
+ 512 0002 80F8C630 		strb	r3, [r0, #198]
+ 128:modules/can_comm/can_comm.c ****     return instance->unpacked_recv_data;
+ 513              		.loc 1 128 5 is_stmt 1 view .LVU148
+ 129:modules/can_comm/can_comm.c **** }
+ 514              		.loc 1 129 1 is_stmt 0 view .LVU149
+ 515 0006 8830     		adds	r0, r0, #136
+ 516              	.LVL42:
+ 517              		.loc 1 129 1 view .LVU150
+ 518 0008 7047     		bx	lr
+ 519              		.cfi_endproc
+ 520              	.LFE243:
+ 522              		.section	.text.CANCommIsOnline,"ax",%progbits
+ 523              		.align	1
+ 524              		.global	CANCommIsOnline
+ 525              		.syntax unified
+ 526              		.thumb
+ 527              		.thumb_func
+ 529              	CANCommIsOnline:
+ 530              	.LVL43:
+ 531              	.LFB244:
+ 130:modules/can_comm/can_comm.c **** 
+ 131:modules/can_comm/can_comm.c **** uint8_t CANCommIsOnline(CANCommInstance *instance)
+ 132:modules/can_comm/can_comm.c **** {
+ 532              		.loc 1 132 1 is_stmt 1 view -0
+ 533              		.cfi_startproc
+ 534              		@ args = 0, pretend = 0, frame = 0
+ 535              		@ frame_needed = 0, uses_anonymous_args = 0
+ 536              		.loc 1 132 1 is_stmt 0 view .LVU152
+ 537 0000 08B5     		push	{r3, lr}
+ 538              	.LCFI7:
+ 539              		.cfi_def_cfa_offset 8
+ 540              		.cfi_offset 3, -8
+ 541              		.cfi_offset 14, -4
+ 133:modules/can_comm/can_comm.c ****     return DaemonIsOnline(instance->comm_daemon);
+ 542              		.loc 1 133 5 is_stmt 1 view .LVU153
+ 543              		.loc 1 133 12 is_stmt 0 view .LVU154
+ 544 0002 D0F8C700 		ldr	r0, [r0, #199]	@ unaligned
+ 545              	.LVL44:
+ 546              		.loc 1 133 12 view .LVU155
+ 547 0006 FFF7FEFF 		bl	DaemonIsOnline
+ 548              	.LVL45:
+ 134:modules/can_comm/can_comm.c **** }
+ 549              		.loc 1 134 1 view .LVU156
+ 550 000a 08BD     		pop	{r3, pc}
+ 551              		.cfi_endproc
+ 552              	.LFE244:
+ 554              		.section	.bss.crc8.1,"aw",%nobits
+ 555              		.set	.LANCHOR0,. + 0
+ 558              	crc8.1:
+ 559 0000 00       		.space	1
+ 560              		.section	.bss.send_len.0,"aw",%nobits
+ 561              		.set	.LANCHOR1,. + 0
+ 564              	send_len.0:
+ 565 0000 00       		.space	1
+ 566              		.text
+ 567              	.Letext0:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 14
+
+
+ 568              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 569              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ 570              		.file 4 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h"
+ 571              		.file 5 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h"
+ 572              		.file 6 "c:\\installsoftware\\arm-gnu-toolchian\\lib\\gcc\\arm-none-eabi\\10.3.1\\include\\stddef.
+ 573              		.file 7 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_can.h"
+ 574              		.file 8 "bsp/can/bsp_can.h"
+ 575              		.file 9 "modules/daemon/daemon.h"
+ 576              		.file 10 "modules/can_comm/can_comm.h"
+ 577              		.file 11 "modules/algorithm/crc8.h"
+ 578              		.file 12 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\stdlib.h"
+ 579              		.file 13 "<built-in>"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s 			page 15
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 can_comm.c
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:20     .text.CANCommResetRx:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:25     .text.CANCommResetRx:00000000 CANCommResetRx
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:62     .text.CANCommLostCallback:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:67     .text.CANCommLostCallback:00000000 CANCommLostCallback
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:92     .text.CANCommRxCallback:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:97     .text.CANCommRxCallback:00000000 CANCommRxCallback
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:252    .text.CANCommInit:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:258    .text.CANCommInit:00000000 CANCommInit
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:371    .text.CANCommInit:0000006c $d
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:377    .text.CANCommSend:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:383    .text.CANCommSend:00000000 CANCommSend
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:489    .text.CANCommSend:00000060 $d
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:495    .text.CANCommGet:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:501    .text.CANCommGet:00000000 CANCommGet
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:523    .text.CANCommIsOnline:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:529    .text.CANCommIsOnline:00000000 CANCommIsOnline
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:558    .bss.crc8.1:00000000 crc8.1
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:559    .bss.crc8.1:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:564    .bss.send_len.0:00000000 send_len.0
+C:\Users\z0147233\AppData\Local\Temp\cc0yKEGe.s:565    .bss.send_len.0:00000000 $d
+
+UNDEFINED SYMBOLS
+memset
+memcpy
+crc_8
+DaemonReload
+malloc
+CANRegister
+DaemonRegister
+CANSetDLC
+CANTransmit
+DaemonIsOnline

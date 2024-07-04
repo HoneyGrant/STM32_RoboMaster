@@ -1,0 +1,552 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"ist8310.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.IST8310Decode,"ax",%progbits
+  20              		.align	1
+  21              		.syntax unified
+  22              		.thumb
+  23              		.thumb_func
+  25              	IST8310Decode:
+  26              	.LVL0:
+  27              	.LFB238:
+  28              		.file 1 "modules/ist8310/ist8310.c"
+   1:modules/ist8310/ist8310.c **** #include "bsp_dwt.h"
+   2:modules/ist8310/ist8310.c **** #include "ist8310.h"
+   3:modules/ist8310/ist8310.c **** #include "bsp_log.h"
+   4:modules/ist8310/ist8310.c **** #include <memory.h>
+   5:modules/ist8310/ist8310.c **** #include <stdlib.h>
+   6:modules/ist8310/ist8310.c **** 
+   7:modules/ist8310/ist8310.c **** // 一般这个模块只有一个实例,所以直接保存在这里,实际上不保存也可以,app
+   8:modules/ist8310/ist8310.c **** static IST8310Instance *ist8310_instance = NULL; // 用于存储IST8310实例的指针
+   9:modules/ist8310/ist8310.c **** 
+  10:modules/ist8310/ist8310.c **** #define IST8310_WRITE_REG_NUM 4     // 方便阅读
+  11:modules/ist8310/ist8310.c **** #define IST8310_DATA_REG 0x03       // ist8310的数据寄存器
+  12:modules/ist8310/ist8310.c **** #define IST8310_WHO_AM_I 0x00       // ist8310 id 寄存器值
+  13:modules/ist8310/ist8310.c **** #define IST8310_WHO_AM_I_VALUE 0x10 // 用于检测是否连接成功,读取ist8310的whoami会返�
+  14:modules/ist8310/ist8310.c **** 
+  15:modules/ist8310/ist8310.c **** // -------------------初始化写入数组,只使用一次,详见datasheet------------------------
+  16:modules/ist8310/ist8310.c **** // the first column:the registers of IST8310. 第一列:IST8310的寄存器
+  17:modules/ist8310/ist8310.c **** // the second column: the value to be writed to the registers.第二列:需要写入的寄存器值
+  18:modules/ist8310/ist8310.c **** // the third column: return error value.第三列:返回的错误码
+  19:modules/ist8310/ist8310.c **** static uint8_t ist8310_write_reg_data_error[IST8310_WRITE_REG_NUM][3] = {
+  20:modules/ist8310/ist8310.c ****     {0x0B, 0x08, 0x01},  // enalbe interrupt  and low pin polarity.开启中断，并且设置低�
+  21:modules/ist8310/ist8310.c ****     {0x41, 0x09, 0x02},  // average 2 times.平均采样两次
+  22:modules/ist8310/ist8310.c ****     {0x42, 0xC0, 0x03},  // must be 0xC0. 必须是0xC0
+  23:modules/ist8310/ist8310.c ****     {0x0A, 0x0B, 0x04}}; // 200Hz output rate.200Hz输出频率
+  24:modules/ist8310/ist8310.c **** 
+  25:modules/ist8310/ist8310.c **** /**
+  26:modules/ist8310/ist8310.c ****  * @brief IST8310解码函数,EXTI中断来临时被调用,将数据放到ist.mag中
+  27:modules/ist8310/ist8310.c ****  * @note 如果使用IT或DMA方式传输IIC,则传输完成后也会进入此函数
+  28:modules/ist8310/ist8310.c ****  *
+  29:modules/ist8310/ist8310.c ****  * @param ist 发生中断的IST8310实例
+  30:modules/ist8310/ist8310.c ****  */
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 2
+
+
+  31:modules/ist8310/ist8310.c **** static void IST8310Decode(IICInstance *iic)
+  32:modules/ist8310/ist8310.c **** {
+  29              		.loc 1 32 1 view -0
+  30              		.cfi_startproc
+  31              		@ args = 0, pretend = 0, frame = 8
+  32              		@ frame_needed = 0, uses_anonymous_args = 0
+  33              		@ link register save eliminated.
+  34              		.loc 1 32 1 is_stmt 0 view .LVU1
+  35 0000 82B0     		sub	sp, sp, #8
+  36              	.LCFI0:
+  37              		.cfi_def_cfa_offset 8
+  33:modules/ist8310/ist8310.c ****     int16_t temp[3];                                     // 用于存储解码后的数据
+  38              		.loc 1 33 5 is_stmt 1 view .LVU2
+  34:modules/ist8310/ist8310.c ****     IST8310Instance *ist = (IST8310Instance *)(iic->id); // iic的id保存了IST8310实例的指针
+  39              		.loc 1 34 5 view .LVU3
+  40              		.loc 1 34 22 is_stmt 0 view .LVU4
+  41 0002 4169     		ldr	r1, [r0, #20]
+  42              	.LVL1:
+  35:modules/ist8310/ist8310.c **** 
+  36:modules/ist8310/ist8310.c ****     memcpy(temp, ist->iic_buffer, 6 * sizeof(uint8_t)); // 不要强制转换,直接cpy
+  43              		.loc 1 36 5 is_stmt 1 view .LVU5
+  44 0004 C868     		ldr	r0, [r1, #12]	@ unaligned
+  45              	.LVL2:
+  46              		.loc 1 36 5 is_stmt 0 view .LVU6
+  47 0006 0090     		str	r0, [sp]
+  48 0008 0B8A     		ldrh	r3, [r1, #16]	@ unaligned
+  49 000a ADF80430 		strh	r3, [sp, #4]	@ unaligned
+  37:modules/ist8310/ist8310.c ****     for (uint8_t i = 0; i < 3; i++)
+  50              		.loc 1 37 5 is_stmt 1 view .LVU7
+  51              	.LBB2:
+  52              		.loc 1 37 10 view .LVU8
+  53              	.LVL3:
+  54              		.loc 1 37 18 is_stmt 0 view .LVU9
+  55 000e 0023     		movs	r3, #0
+  56              		.loc 1 37 5 view .LVU10
+  57 0010 13E0     		b	.L2
+  58              	.LVL4:
+  59              	.L3:
+  38:modules/ist8310/ist8310.c ****         ist->mag[i] = (float)temp[i] * MAG_SEN; // 乘以灵敏度转换成uT(微特斯拉)
+  60              		.loc 1 38 9 is_stmt 1 discriminator 3 view .LVU11
+  61              		.loc 1 38 34 is_stmt 0 discriminator 3 view .LVU12
+  62 0012 02AA     		add	r2, sp, #8
+  63 0014 02EB4302 		add	r2, r2, r3, lsl #1
+  64 0018 32F9082C 		ldrsh	r2, [r2, #-8]
+  65 001c 07EE902A 		vmov	s15, r2	@ int
+  66              		.loc 1 38 23 discriminator 3 view .LVU13
+  67 0020 F8EEE77A 		vcvt.f32.s32	s15, s15
+  68              		.loc 1 38 38 discriminator 3 view .LVU14
+  69 0024 9FED077A 		vldr.32	s14, .L5
+  70 0028 67EE877A 		vmul.f32	s15, s15, s14
+  71              		.loc 1 38 21 discriminator 3 view .LVU15
+  72 002c 1A1D     		adds	r2, r3, #4
+  73 002e 01EB8202 		add	r2, r1, r2, lsl #2
+  74 0032 C2ED017A 		vstr.32	s15, [r2, #4]
+  37:modules/ist8310/ist8310.c ****     for (uint8_t i = 0; i < 3; i++)
+  75              		.loc 1 37 32 is_stmt 1 discriminator 3 view .LVU16
+  37:modules/ist8310/ist8310.c ****     for (uint8_t i = 0; i < 3; i++)
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 3
+
+
+  76              		.loc 1 37 33 is_stmt 0 discriminator 3 view .LVU17
+  77 0036 0133     		adds	r3, r3, #1
+  78              	.LVL5:
+  37:modules/ist8310/ist8310.c ****     for (uint8_t i = 0; i < 3; i++)
+  79              		.loc 1 37 33 discriminator 3 view .LVU18
+  80 0038 DBB2     		uxtb	r3, r3
+  81              	.LVL6:
+  82              	.L2:
+  37:modules/ist8310/ist8310.c ****     for (uint8_t i = 0; i < 3; i++)
+  83              		.loc 1 37 25 is_stmt 1 discriminator 1 view .LVU19
+  37:modules/ist8310/ist8310.c ****     for (uint8_t i = 0; i < 3; i++)
+  84              		.loc 1 37 5 is_stmt 0 discriminator 1 view .LVU20
+  85 003a 022B     		cmp	r3, #2
+  86 003c E9D9     		bls	.L3
+  87              	.LBE2:
+  39:modules/ist8310/ist8310.c **** }
+  88              		.loc 1 39 1 view .LVU21
+  89 003e 02B0     		add	sp, sp, #8
+  90              	.LCFI1:
+  91              		.cfi_def_cfa_offset 0
+  92              		@ sp needed
+  93 0040 7047     		bx	lr
+  94              	.L6:
+  95 0042 00BF     		.align	2
+  96              	.L5:
+  97 0044 9A99993E 		.word	1050253722
+  98              		.cfi_endproc
+  99              	.LFE238:
+ 101              		.section	.text.IST8310StartTransfer,"ax",%progbits
+ 102              		.align	1
+ 103              		.syntax unified
+ 104              		.thumb
+ 105              		.thumb_func
+ 107              	IST8310StartTransfer:
+ 108              	.LVL7:
+ 109              	.LFB239:
+  40:modules/ist8310/ist8310.c **** 
+  41:modules/ist8310/ist8310.c **** /**
+  42:modules/ist8310/ist8310.c ****  * @brief EXTI中断回调函数,说明DRDY拉低.主机启动传输并在结束后调用IST8310Dec
+  43:modules/ist8310/ist8310.c ****  * @note  注意IICAccessMem是阻塞的
+  44:modules/ist8310/ist8310.c ****  *
+  45:modules/ist8310/ist8310.c ****  * @param gpio 发生中断的GPIO实例
+  46:modules/ist8310/ist8310.c ****  */
+  47:modules/ist8310/ist8310.c **** static void IST8310StartTransfer(GPIOInstance *gpio)
+  48:modules/ist8310/ist8310.c **** {
+ 110              		.loc 1 48 1 is_stmt 1 view -0
+ 111              		.cfi_startproc
+ 112              		@ args = 0, pretend = 0, frame = 0
+ 113              		@ frame_needed = 0, uses_anonymous_args = 0
+ 114              		.loc 1 48 1 is_stmt 0 view .LVU23
+ 115 0000 10B5     		push	{r4, lr}
+ 116              	.LCFI2:
+ 117              		.cfi_def_cfa_offset 8
+ 118              		.cfi_offset 4, -8
+ 119              		.cfi_offset 14, -4
+ 120 0002 82B0     		sub	sp, sp, #8
+ 121              	.LCFI3:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 4
+
+
+ 122              		.cfi_def_cfa_offset 16
+  49:modules/ist8310/ist8310.c ****     // 先获取IST8310实例的指针(通过gpio实例的父指针id)
+  50:modules/ist8310/ist8310.c ****     IST8310Instance *ist_for_transfer = (IST8310Instance *)gpio->id;
+ 123              		.loc 1 50 5 is_stmt 1 view .LVU24
+ 124              		.loc 1 50 22 is_stmt 0 view .LVU25
+ 125 0004 C468     		ldr	r4, [r0, #12]
+ 126              	.LVL8:
+  51:modules/ist8310/ist8310.c ****     // 中断说明ist已经准备好读取数据寄存器;6个字节,读取后会进入IST8310Deco
+  52:modules/ist8310/ist8310.c ****     IICAccessMem(ist_for_transfer->iic, IST8310_DATA_REG, ist_for_transfer->iic_buffer, 6, IIC_READ
+ 127              		.loc 1 52 5 is_stmt 1 view .LVU26
+ 128              		.loc 1 52 75 is_stmt 0 view .LVU27
+ 129 0006 2246     		mov	r2, r4
+ 130              		.loc 1 52 5 view .LVU28
+ 131 0008 52F80C0B 		ldr	r0, [r2], #12
+ 132              	.LVL9:
+ 133              		.loc 1 52 5 view .LVU29
+ 134 000c 0123     		movs	r3, #1
+ 135 000e 0193     		str	r3, [sp, #4]
+ 136 0010 0023     		movs	r3, #0
+ 137 0012 0093     		str	r3, [sp]
+ 138 0014 0623     		movs	r3, #6
+ 139 0016 0321     		movs	r1, #3
+ 140 0018 FFF7FEFF 		bl	IICAccessMem
+ 141              	.LVL10:
+  53:modules/ist8310/ist8310.c ****     // 传输完成后会进入IST8310Decode函数进行数据解析
+  54:modules/ist8310/ist8310.c ****     IST8310Decode(ist_for_transfer->iic);
+ 142              		.loc 1 54 5 is_stmt 1 view .LVU30
+ 143 001c 2068     		ldr	r0, [r4]
+ 144 001e FFF7FEFF 		bl	IST8310Decode
+ 145              	.LVL11:
+  55:modules/ist8310/ist8310.c **** }
+ 146              		.loc 1 55 1 is_stmt 0 view .LVU31
+ 147 0022 02B0     		add	sp, sp, #8
+ 148              	.LCFI4:
+ 149              		.cfi_def_cfa_offset 8
+ 150              		@ sp needed
+ 151 0024 10BD     		pop	{r4, pc}
+ 152              		.loc 1 55 1 view .LVU32
+ 153              		.cfi_endproc
+ 154              	.LFE239:
+ 156              		.section	.text.IST8310Init,"ax",%progbits
+ 157              		.align	1
+ 158              		.global	IST8310Init
+ 159              		.syntax unified
+ 160              		.thumb
+ 161              		.thumb_func
+ 163              	IST8310Init:
+ 164              	.LVL12:
+ 165              	.LFB240:
+  56:modules/ist8310/ist8310.c **** 
+  57:modules/ist8310/ist8310.c **** IST8310Instance *IST8310Init(IST8310_Init_Config_s *config)
+  58:modules/ist8310/ist8310.c **** {
+ 166              		.loc 1 58 1 is_stmt 1 view -0
+ 167              		.cfi_startproc
+ 168              		@ args = 0, pretend = 0, frame = 8
+ 169              		@ frame_needed = 0, uses_anonymous_args = 0
+ 170              		.loc 1 58 1 is_stmt 0 view .LVU34
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 5
+
+
+ 171 0000 2DE9F043 		push	{r4, r5, r6, r7, r8, r9, lr}
+ 172              	.LCFI5:
+ 173              		.cfi_def_cfa_offset 28
+ 174              		.cfi_offset 4, -28
+ 175              		.cfi_offset 5, -24
+ 176              		.cfi_offset 6, -20
+ 177              		.cfi_offset 7, -16
+ 178              		.cfi_offset 8, -12
+ 179              		.cfi_offset 9, -8
+ 180              		.cfi_offset 14, -4
+ 181 0004 85B0     		sub	sp, sp, #20
+ 182              	.LCFI6:
+ 183              		.cfi_def_cfa_offset 48
+ 184 0006 0546     		mov	r5, r0
+  59:modules/ist8310/ist8310.c ****     static const uint8_t sleepTime = 50; // 50ms,ist8310的复位时间
+ 185              		.loc 1 59 5 is_stmt 1 view .LVU35
+  60:modules/ist8310/ist8310.c ****     uint8_t check_who_i_am = 0;          // 用于检测ist8310是否连接成功
+ 186              		.loc 1 60 5 view .LVU36
+ 187              		.loc 1 60 13 is_stmt 0 view .LVU37
+ 188 0008 0026     		movs	r6, #0
+ 189 000a 8DF80F60 		strb	r6, [sp, #15]
+  61:modules/ist8310/ist8310.c ****     // 这个变量只会用到一次,出了这个函数就没用了,所以不用分配空间,直�
+  62:modules/ist8310/ist8310.c **** 
+  63:modules/ist8310/ist8310.c ****     // 分配空间,清除flash防止已经填充的垃圾值
+  64:modules/ist8310/ist8310.c ****     IST8310Instance *ist = (IST8310Instance *)malloc(sizeof(IST8310Instance));
+ 190              		.loc 1 64 5 is_stmt 1 view .LVU38
+ 191              		.loc 1 64 47 is_stmt 0 view .LVU39
+ 192 000e 2420     		movs	r0, #36
+ 193              	.LVL13:
+ 194              		.loc 1 64 47 view .LVU40
+ 195 0010 FFF7FEFF 		bl	malloc
+ 196              	.LVL14:
+ 197 0014 0446     		mov	r4, r0
+ 198              	.LVL15:
+  65:modules/ist8310/ist8310.c ****     memset(ist, 0, sizeof(IST8310Instance));
+ 199              		.loc 1 65 5 is_stmt 1 view .LVU41
+ 200 0016 2422     		movs	r2, #36
+ 201 0018 3146     		mov	r1, r6
+ 202 001a FFF7FEFF 		bl	memset
+ 203              	.LVL16:
+  66:modules/ist8310/ist8310.c **** 
+  67:modules/ist8310/ist8310.c ****     // c语言赋值从右到左,全部指向同一个地址(这些bspinstnace的父节点都是ist
+  68:modules/ist8310/ist8310.c ****     config->iic_config.id = config->gpio_conf_exti.id = config->gpio_conf_rst.id = ist;
+ 204              		.loc 1 68 5 view .LVU42
+ 205              		.loc 1 68 82 is_stmt 0 view .LVU43
+ 206 001e EC61     		str	r4, [r5, #28]
+ 207              		.loc 1 68 55 view .LVU44
+ 208 0020 EC62     		str	r4, [r5, #44]
+ 209              		.loc 1 68 27 view .LVU45
+ 210 0022 EC60     		str	r4, [r5, #12]
+  69:modules/ist8310/ist8310.c ****     // 传入回调函数
+  70:modules/ist8310/ist8310.c ****     config->iic_config.callback = IST8310Decode;
+ 211              		.loc 1 70 5 is_stmt 1 view .LVU46
+ 212              		.loc 1 70 33 is_stmt 0 view .LVU47
+ 213 0024 2D4B     		ldr	r3, .L18
+ 214 0026 AB60     		str	r3, [r5, #8]
+  71:modules/ist8310/ist8310.c ****     config->gpio_conf_exti.gpio_model_callback = IST8310StartTransfer;
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 6
+
+
+ 215              		.loc 1 71 5 is_stmt 1 view .LVU48
+ 216              		.loc 1 71 48 is_stmt 0 view .LVU49
+ 217 0028 2D4B     		ldr	r3, .L18+4
+ 218 002a AB62     		str	r3, [r5, #40]
+  72:modules/ist8310/ist8310.c ****     // 分别注册两个GPIO和IIC
+  73:modules/ist8310/ist8310.c ****     ist->iic = IICRegister(&config->iic_config);
+ 219              		.loc 1 73 5 is_stmt 1 view .LVU50
+ 220              		.loc 1 73 16 is_stmt 0 view .LVU51
+ 221 002c 2846     		mov	r0, r5
+ 222 002e FFF7FEFF 		bl	IICRegister
+ 223              	.LVL17:
+ 224              		.loc 1 73 14 view .LVU52
+ 225 0032 2060     		str	r0, [r4]
+  74:modules/ist8310/ist8310.c ****     ist->gpio_exti = GPIORegister(&config->gpio_conf_exti);
+ 226              		.loc 1 74 5 is_stmt 1 view .LVU53
+ 227              		.loc 1 74 22 is_stmt 0 view .LVU54
+ 228 0034 05F12000 		add	r0, r5, #32
+ 229 0038 FFF7FEFF 		bl	GPIORegister
+ 230              	.LVL18:
+ 231              		.loc 1 74 20 view .LVU55
+ 232 003c A060     		str	r0, [r4, #8]
+  75:modules/ist8310/ist8310.c ****     ist->gpio_rst = GPIORegister(&config->gpio_conf_rst);
+ 233              		.loc 1 75 5 is_stmt 1 view .LVU56
+ 234              		.loc 1 75 21 is_stmt 0 view .LVU57
+ 235 003e 05F11000 		add	r0, r5, #16
+ 236 0042 FFF7FEFF 		bl	GPIORegister
+ 237              	.LVL19:
+ 238              		.loc 1 75 19 view .LVU58
+ 239 0046 6060     		str	r0, [r4, #4]
+  76:modules/ist8310/ist8310.c **** 
+  77:modules/ist8310/ist8310.c ****     // 重置IST8310,需要HAL_Delay()等待传感器完成Reset
+  78:modules/ist8310/ist8310.c ****     GPIOReset(ist->gpio_rst);
+ 240              		.loc 1 78 5 is_stmt 1 view .LVU59
+ 241 0048 FFF7FEFF 		bl	GPIOReset
+ 242              	.LVL20:
+  79:modules/ist8310/ist8310.c ****     HAL_Delay(sleepTime);
+ 243              		.loc 1 79 5 view .LVU60
+ 244 004c 3220     		movs	r0, #50
+ 245 004e FFF7FEFF 		bl	HAL_Delay
+ 246              	.LVL21:
+  80:modules/ist8310/ist8310.c ****     GPIOSet(ist->gpio_rst);
+ 247              		.loc 1 80 5 view .LVU61
+ 248 0052 6068     		ldr	r0, [r4, #4]
+ 249 0054 FFF7FEFF 		bl	GPIOSet
+ 250              	.LVL22:
+  81:modules/ist8310/ist8310.c ****     HAL_Delay(sleepTime);
+ 251              		.loc 1 81 5 view .LVU62
+ 252 0058 3220     		movs	r0, #50
+ 253 005a FFF7FEFF 		bl	HAL_Delay
+ 254              	.LVL23:
+  82:modules/ist8310/ist8310.c **** 
+  83:modules/ist8310/ist8310.c ****     // 读取IST8310的ID,如果不是0x10(whoami macro的值),则返回错误
+  84:modules/ist8310/ist8310.c ****     IICAccessMem(ist->iic, IST8310_WHO_AM_I, &check_who_i_am, 1, IIC_READ_MEM, 1);
+ 255              		.loc 1 84 5 view .LVU63
+ 256 005e 2068     		ldr	r0, [r4]
+ 257 0060 0123     		movs	r3, #1
+ 258 0062 0193     		str	r3, [sp, #4]
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 7
+
+
+ 259 0064 0096     		str	r6, [sp]
+ 260 0066 0DF10F02 		add	r2, sp, #15
+ 261 006a 3146     		mov	r1, r6
+ 262 006c FFF7FEFF 		bl	IICAccessMem
+ 263              	.LVL24:
+  85:modules/ist8310/ist8310.c ****     if (check_who_i_am != IST8310_WHO_AM_I_VALUE)
+ 264              		.loc 1 85 5 view .LVU64
+ 265              		.loc 1 85 24 is_stmt 0 view .LVU65
+ 266 0070 9DF80F30 		ldrb	r3, [sp, #15]	@ zero_extendqisi2
+ 267              		.loc 1 85 8 view .LVU66
+ 268 0074 102B     		cmp	r3, #16
+ 269 0076 2ED1     		bne	.L15
+ 270              	.LBB3:
+  86:modules/ist8310/ist8310.c ****         return NULL; // while(1)
+  87:modules/ist8310/ist8310.c **** 
+  88:modules/ist8310/ist8310.c ****     // 进行初始化配置写入并检查是否写入成功,这里用循环把最上面初始化�
+  89:modules/ist8310/ist8310.c ****     for (uint8_t i = 0; i < IST8310_WRITE_REG_NUM; i++)
+ 271              		.loc 1 89 18 view .LVU67
+ 272 0078 3546     		mov	r5, r6
+ 273              	.LVL25:
+ 274              	.L11:
+ 275              		.loc 1 89 25 is_stmt 1 discriminator 1 view .LVU68
+ 276              		.loc 1 89 5 is_stmt 0 discriminator 1 view .LVU69
+ 277 007a 032D     		cmp	r5, #3
+ 278 007c 25D8     		bhi	.L17
+  90:modules/ist8310/ist8310.c ****     { // 写入配置,写一句就读一下看看ist8310是否仍然在线
+  91:modules/ist8310/ist8310.c ****         IICAccessMem(ist->iic, ist8310_write_reg_data_error[i][0], &ist8310_write_reg_data_error[i]
+ 279              		.loc 1 91 9 is_stmt 1 view .LVU70
+ 280              		.loc 1 91 63 is_stmt 0 view .LVU71
+ 281 007e DFF86880 		ldr	r8, .L18+12
+ 282 0082 05EB4507 		add	r7, r5, r5, lsl #1
+ 283 0086 08EB0709 		add	r9, r8, r7
+ 284              		.loc 1 91 9 view .LVU72
+ 285 008a 7A1C     		adds	r2, r7, #1
+ 286 008c 2068     		ldr	r0, [r4]
+ 287 008e 0126     		movs	r6, #1
+ 288 0090 0196     		str	r6, [sp, #4]
+ 289 0092 0096     		str	r6, [sp]
+ 290 0094 3346     		mov	r3, r6
+ 291 0096 4244     		add	r2, r2, r8
+ 292 0098 18F80710 		ldrb	r1, [r8, r7]	@ zero_extendqisi2
+ 293 009c FFF7FEFF 		bl	IICAccessMem
+ 294              	.LVL26:
+  92:modules/ist8310/ist8310.c ****         IICAccessMem(ist->iic, ist8310_write_reg_data_error[i][0], &check_who_i_am, 1, IIC_READ_MEM
+ 295              		.loc 1 92 9 is_stmt 1 view .LVU73
+ 296 00a0 2068     		ldr	r0, [r4]
+ 297 00a2 0196     		str	r6, [sp, #4]
+ 298 00a4 0023     		movs	r3, #0
+ 299 00a6 0093     		str	r3, [sp]
+ 300 00a8 3346     		mov	r3, r6
+ 301 00aa 0DF10F02 		add	r2, sp, #15
+ 302 00ae 18F80710 		ldrb	r1, [r8, r7]	@ zero_extendqisi2
+ 303 00b2 FFF7FEFF 		bl	IICAccessMem
+ 304              	.LVL27:
+  93:modules/ist8310/ist8310.c ****         if (check_who_i_am != ist8310_write_reg_data_error[i][1])
+ 305              		.loc 1 93 9 view .LVU74
+ 306              		.loc 1 93 62 is_stmt 0 view .LVU75
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 8
+
+
+ 307 00b6 99F80120 		ldrb	r2, [r9, #1]	@ zero_extendqisi2
+ 308              		.loc 1 93 28 view .LVU76
+ 309 00ba 9DF80F30 		ldrb	r3, [sp, #15]	@ zero_extendqisi2
+ 310              		.loc 1 93 12 view .LVU77
+ 311 00be 9A42     		cmp	r2, r3
+ 312 00c0 02D1     		bne	.L13
+  89:modules/ist8310/ist8310.c ****     { // 写入配置,写一句就读一下看看ist8310是否仍然在线
+ 313              		.loc 1 89 52 is_stmt 1 discriminator 2 view .LVU78
+  89:modules/ist8310/ist8310.c ****     { // 写入配置,写一句就读一下看看ist8310是否仍然在线
+ 314              		.loc 1 89 53 is_stmt 0 discriminator 2 view .LVU79
+ 315 00c2 0135     		adds	r5, r5, #1
+ 316              	.LVL28:
+  89:modules/ist8310/ist8310.c ****     { // 写入配置,写一句就读一下看看ist8310是否仍然在线
+ 317              		.loc 1 89 53 discriminator 2 view .LVU80
+ 318 00c4 EDB2     		uxtb	r5, r5
+ 319              	.LVL29:
+  89:modules/ist8310/ist8310.c ****     { // 写入配置,写一句就读一下看看ist8310是否仍然在线
+ 320              		.loc 1 89 53 discriminator 2 view .LVU81
+ 321 00c6 D8E7     		b	.L11
+ 322              	.L13:
+  94:modules/ist8310/ist8310.c ****             while (1)
+ 323              		.loc 1 94 13 is_stmt 1 discriminator 1 view .LVU82
+  95:modules/ist8310/ist8310.c ****                 LOGERROR("[ist8310] init error, code %d", ist8310_write_reg_data_error[i][2]); // �
+ 324              		.loc 1 95 94 discriminator 1 view .LVU83
+  94:modules/ist8310/ist8310.c ****             while (1)
+ 325              		.loc 1 94 19 discriminator 1 view .LVU84
+ 326 00c8 FEE7     		b	.L13
+ 327              	.L17:
+  94:modules/ist8310/ist8310.c ****             while (1)
+ 328              		.loc 1 94 19 is_stmt 0 discriminator 1 view .LVU85
+ 329              	.LBE3:
+  96:modules/ist8310/ist8310.c ****     }
+  97:modules/ist8310/ist8310.c **** 
+  98:modules/ist8310/ist8310.c ****     ist8310_instance = ist; // 保存ist8310实例的指针
+ 330              		.loc 1 98 5 is_stmt 1 view .LVU86
+ 331              		.loc 1 98 22 is_stmt 0 view .LVU87
+ 332 00ca 064B     		ldr	r3, .L18+8
+ 333 00cc 1C60     		str	r4, [r3]
+  99:modules/ist8310/ist8310.c ****     return ist;
+ 334              		.loc 1 99 5 is_stmt 1 view .LVU88
+ 335              	.LVL30:
+ 336              	.L9:
+ 100:modules/ist8310/ist8310.c **** }
+ 337              		.loc 1 100 1 is_stmt 0 view .LVU89
+ 338 00ce 2046     		mov	r0, r4
+ 339 00d0 05B0     		add	sp, sp, #20
+ 340              	.LCFI7:
+ 341              		.cfi_remember_state
+ 342              		.cfi_def_cfa_offset 28
+ 343              		@ sp needed
+ 344 00d2 BDE8F083 		pop	{r4, r5, r6, r7, r8, r9, pc}
+ 345              	.LVL31:
+ 346              	.L15:
+ 347              	.LCFI8:
+ 348              		.cfi_restore_state
+  86:modules/ist8310/ist8310.c **** 
+ 349              		.loc 1 86 16 view .LVU90
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 9
+
+
+ 350 00d6 0024     		movs	r4, #0
+ 351              	.LVL32:
+  86:modules/ist8310/ist8310.c **** 
+ 352              		.loc 1 86 16 view .LVU91
+ 353 00d8 F9E7     		b	.L9
+ 354              	.L19:
+ 355 00da 00BF     		.align	2
+ 356              	.L18:
+ 357 00dc 00000000 		.word	IST8310Decode
+ 358 00e0 00000000 		.word	IST8310StartTransfer
+ 359 00e4 00000000 		.word	.LANCHOR1
+ 360 00e8 00000000 		.word	.LANCHOR0
+ 361              		.cfi_endproc
+ 362              	.LFE240:
+ 364              		.section	.bss.ist8310_instance,"aw",%nobits
+ 365              		.align	2
+ 366              		.set	.LANCHOR1,. + 0
+ 369              	ist8310_instance:
+ 370 0000 00000000 		.space	4
+ 371              		.section	.data.ist8310_write_reg_data_error,"aw"
+ 372              		.align	2
+ 373              		.set	.LANCHOR0,. + 0
+ 376              	ist8310_write_reg_data_error:
+ 377 0000 0B0801   		.ascii	"\013\010\001"
+ 378 0003 410902   		.ascii	"A\011\002"
+ 379 0006 42C003   		.ascii	"B\300\003"
+ 380 0009 0A0B04   		.ascii	"\012\013\004"
+ 381              		.text
+ 382              	.Letext0:
+ 383              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 384              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ 385              		.file 4 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h"
+ 386              		.file 5 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h"
+ 387              		.file 6 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h"
+ 388              		.file 7 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h"
+ 389              		.file 8 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_i2c.h"
+ 390              		.file 9 "bsp/iic/bsp_iic.h"
+ 391              		.file 10 "bsp/gpio/bsp_gpio.h"
+ 392              		.file 11 "modules/ist8310/ist8310.h"
+ 393              		.file 12 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\stdlib.h"
+ 394              		.file 13 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h"
+ 395              		.file 14 "<built-in>"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s 			page 10
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 ist8310.c
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:20     .text.IST8310Decode:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:25     .text.IST8310Decode:00000000 IST8310Decode
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:97     .text.IST8310Decode:00000044 $d
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:102    .text.IST8310StartTransfer:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:107    .text.IST8310StartTransfer:00000000 IST8310StartTransfer
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:157    .text.IST8310Init:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:163    .text.IST8310Init:00000000 IST8310Init
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:357    .text.IST8310Init:000000dc $d
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:365    .bss.ist8310_instance:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:369    .bss.ist8310_instance:00000000 ist8310_instance
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:372    .data.ist8310_write_reg_data_error:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc7s1tKQ.s:376    .data.ist8310_write_reg_data_error:00000000 ist8310_write_reg_data_error
+
+UNDEFINED SYMBOLS
+IICAccessMem
+malloc
+memset
+IICRegister
+GPIORegister
+GPIOReset
+HAL_Delay
+GPIOSet

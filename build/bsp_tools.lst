@@ -1,0 +1,303 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"bsp_tools.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.CallbackTaskBase,"ax",%progbits
+  20              		.align	1
+  21              		.syntax unified
+  22              		.thumb
+  23              		.thumb_func
+  25              	CallbackTaskBase:
+  26              	.LVL0:
+  27              	.LFB8:
+  28              		.file 1 "bsp/bsp_tools.c"
+   1:bsp/bsp_tools.c **** #include <stdarg.h>
+   2:bsp/bsp_tools.c **** 
+   3:bsp/bsp_tools.c **** #include "cmsis_os.h"
+   4:bsp/bsp_tools.c **** #include "bsp_log.h"
+   5:bsp/bsp_tools.c **** #include "bsp_tools.h"
+   6:bsp/bsp_tools.c **** 
+   7:bsp/bsp_tools.c **** #define MX_SIG_LIST_SIZE 32 // 不可修改,最大信号量数量
+   8:bsp/bsp_tools.c **** 
+   9:bsp/bsp_tools.c **** typedef struct
+  10:bsp/bsp_tools.c **** {
+  11:bsp/bsp_tools.c ****     void *callback;
+  12:bsp/bsp_tools.c ****     uint32_t sig;
+  13:bsp/bsp_tools.c ****     void *ins;
+  14:bsp/bsp_tools.c **** } CallbackTask_t;
+  15:bsp/bsp_tools.c **** 
+  16:bsp/bsp_tools.c **** // 递增记录全局信号量的数组,最大32个信号量
+  17:bsp/bsp_tools.c **** static uint8_t sig_idx = 0;
+  18:bsp/bsp_tools.c **** static uint32_t tmp_sig = 1; // tmp_sing << sig_idx从而生成对应信号量
+  19:bsp/bsp_tools.c **** 
+  20:bsp/bsp_tools.c **** static osThreadId cbkid_list[MX_SIG_LIST_SIZE];
+  21:bsp/bsp_tools.c **** static CallbackTask_t cbkinfo_list[MX_SIG_LIST_SIZE];
+  22:bsp/bsp_tools.c **** 
+  23:bsp/bsp_tools.c **** // 死循环任务,执行cbk函数指针,每次执行完毕后等待sig信号
+  24:bsp/bsp_tools.c **** __attribute__((noreturn)) static void CallbackTaskBase(void const *cbk)
+  25:bsp/bsp_tools.c **** {
+  29              		.loc 1 25 1 view -0
+  30              		.cfi_startproc
+  31              		@ Volatile: function does not return.
+  32              		@ args = 0, pretend = 0, frame = 16
+  33              		@ frame_needed = 0, uses_anonymous_args = 0
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s 			page 2
+
+
+  34              		.loc 1 25 1 is_stmt 0 view .LVU1
+  35 0000 00B5     		push	{lr}
+  36              	.LCFI0:
+  37              		.cfi_def_cfa_offset 4
+  38              		.cfi_offset 14, -4
+  39 0002 85B0     		sub	sp, sp, #20
+  40              	.LCFI1:
+  41              		.cfi_def_cfa_offset 24
+  26:bsp/bsp_tools.c ****     void (*cbk_func)(void const *) = (void (*)(void const *))((CallbackTask_t const *)cbk)->callbac
+  42              		.loc 1 26 5 is_stmt 1 view .LVU2
+  43              		.loc 1 26 91 is_stmt 0 view .LVU3
+  44 0004 0668     		ldr	r6, [r0]
+  45              	.LVL1:
+  27:bsp/bsp_tools.c ****     void const *ins = ((CallbackTask_t const *)cbk)->ins;
+  46              		.loc 1 27 5 is_stmt 1 view .LVU4
+  47              		.loc 1 27 17 is_stmt 0 view .LVU5
+  48 0006 8568     		ldr	r5, [r0, #8]
+  49              	.LVL2:
+  28:bsp/bsp_tools.c ****     uint32_t sig = ((CallbackTask_t const *)cbk)->sig;
+  50              		.loc 1 28 5 is_stmt 1 view .LVU6
+  51              		.loc 1 28 14 is_stmt 0 view .LVU7
+  52 0008 4468     		ldr	r4, [r0, #4]
+  53              	.LVL3:
+  54              	.L2:
+  29:bsp/bsp_tools.c **** 
+  30:bsp/bsp_tools.c ****     for (;;)
+  55              		.loc 1 30 5 is_stmt 1 discriminator 1 view .LVU8
+  31:bsp/bsp_tools.c ****     {
+  32:bsp/bsp_tools.c ****         cbk_func(ins);
+  56              		.loc 1 32 9 discriminator 1 view .LVU9
+  57 000a 2846     		mov	r0, r5
+  58 000c B047     		blx	r6
+  59              	.LVL4:
+  33:bsp/bsp_tools.c ****         osSignalWait(sig, osWaitForever);
+  60              		.loc 1 33 9 discriminator 1 view .LVU10
+  61 000e 4FF0FF32 		mov	r2, #-1
+  62 0012 2146     		mov	r1, r4
+  63 0014 6846     		mov	r0, sp
+  64 0016 FFF7FEFF 		bl	osSignalWait
+  65              	.LVL5:
+  30:bsp/bsp_tools.c ****     {
+  66              		.loc 1 30 11 discriminator 1 view .LVU11
+  67 001a F6E7     		b	.L2
+  68              		.cfi_endproc
+  69              	.LFE8:
+  71              		.section	.text.CreateCallbackTask,"ax",%progbits
+  72              		.align	1
+  73              		.global	CreateCallbackTask
+  74              		.syntax unified
+  75              		.thumb
+  76              		.thumb_func
+  78              	CreateCallbackTask:
+  79              	.LVL6:
+  80              	.LFB9:
+  34:bsp/bsp_tools.c ****     }
+  35:bsp/bsp_tools.c **** }
+  36:bsp/bsp_tools.c **** 
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s 			page 3
+
+
+  37:bsp/bsp_tools.c **** uint32_t CreateCallbackTask(char *name, void *cbk, void *ins, osPriority priority)
+  38:bsp/bsp_tools.c **** {
+  81              		.loc 1 38 1 view -0
+  82              		.cfi_startproc
+  83              		@ args = 0, pretend = 0, frame = 32
+  84              		@ frame_needed = 0, uses_anonymous_args = 0
+  85              		.loc 1 38 1 is_stmt 0 view .LVU13
+  86 0000 30B5     		push	{r4, r5, lr}
+  87              	.LCFI2:
+  88              		.cfi_def_cfa_offset 12
+  89              		.cfi_offset 4, -12
+  90              		.cfi_offset 5, -8
+  91              		.cfi_offset 14, -4
+  92 0002 89B0     		sub	sp, sp, #36
+  93              	.LCFI3:
+  94              		.cfi_def_cfa_offset 48
+  39:bsp/bsp_tools.c ****     if (sig_idx >= MX_SIG_LIST_SIZE)
+  95              		.loc 1 39 5 is_stmt 1 view .LVU14
+  96              		.loc 1 39 17 is_stmt 0 view .LVU15
+  97 0004 164C     		ldr	r4, .L8
+  98 0006 2478     		ldrb	r4, [r4]	@ zero_extendqisi2
+  99              		.loc 1 39 8 view .LVU16
+ 100 0008 1F2C     		cmp	r4, #31
+ 101 000a 00D9     		bls	.L5
+ 102              	.L6:
+  40:bsp/bsp_tools.c ****         while (1)
+ 103              		.loc 1 40 9 is_stmt 1 discriminator 1 view .LVU17
+  41:bsp/bsp_tools.c ****             LOGERROR("[rtos:cbk_register] CreateCallbackTask: sig_idx >= MX_SIG_LIST_SIZE");
+ 104              		.loc 1 41 92 discriminator 1 view .LVU18
+  40:bsp/bsp_tools.c ****         while (1)
+ 105              		.loc 1 40 15 discriminator 1 view .LVU19
+ 106 000c FEE7     		b	.L6
+ 107              	.L5:
+  42:bsp/bsp_tools.c **** 
+  43:bsp/bsp_tools.c ****     cbkinfo_list[sig_idx].callback = cbk;
+ 108              		.loc 1 43 5 view .LVU20
+ 109              		.loc 1 43 36 is_stmt 0 view .LVU21
+ 110 000e 154D     		ldr	r5, .L8+4
+ 111 0010 04EB440E 		add	lr, r4, r4, lsl #1
+ 112 0014 05EB8E0C 		add	ip, r5, lr, lsl #2
+ 113 0018 45F82E10 		str	r1, [r5, lr, lsl #2]
+  44:bsp/bsp_tools.c ****     cbkinfo_list[sig_idx].sig = tmp_sig << sig_idx;
+ 114              		.loc 1 44 5 is_stmt 1 view .LVU22
+ 115              		.loc 1 44 41 is_stmt 0 view .LVU23
+ 116 001c 0121     		movs	r1, #1
+ 117              	.LVL7:
+ 118              		.loc 1 44 41 view .LVU24
+ 119 001e A140     		lsls	r1, r1, r4
+ 120              		.loc 1 44 31 view .LVU25
+ 121 0020 CCF80410 		str	r1, [ip, #4]
+  45:bsp/bsp_tools.c ****     cbkinfo_list[sig_idx].ins = ins;
+ 122              		.loc 1 45 5 is_stmt 1 view .LVU26
+ 123              		.loc 1 45 31 is_stmt 0 view .LVU27
+ 124 0024 CCF80820 		str	r2, [ip, #8]
+  46:bsp/bsp_tools.c **** 
+  47:bsp/bsp_tools.c ****     osThreadDef_t threadDef;
+ 125              		.loc 1 47 5 is_stmt 1 view .LVU28
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s 			page 4
+
+
+  48:bsp/bsp_tools.c ****     threadDef.name = name;
+ 126              		.loc 1 48 5 view .LVU29
+ 127              		.loc 1 48 20 is_stmt 0 view .LVU30
+ 128 0028 0190     		str	r0, [sp, #4]
+  49:bsp/bsp_tools.c ****     threadDef.pthread = &CallbackTaskBase;
+ 129              		.loc 1 49 5 is_stmt 1 view .LVU31
+ 130              		.loc 1 49 23 is_stmt 0 view .LVU32
+ 131 002a 0F4A     		ldr	r2, .L8+8
+ 132              	.LVL8:
+ 133              		.loc 1 49 23 view .LVU33
+ 134 002c 0292     		str	r2, [sp, #8]
+  50:bsp/bsp_tools.c ****     threadDef.tpriority = priority;
+ 135              		.loc 1 50 5 is_stmt 1 view .LVU34
+ 136              		.loc 1 50 25 is_stmt 0 view .LVU35
+ 137 002e ADF80C30 		strh	r3, [sp, #12]	@ movhi
+  51:bsp/bsp_tools.c ****     threadDef.instances = 0;
+ 138              		.loc 1 51 5 is_stmt 1 view .LVU36
+ 139              		.loc 1 51 25 is_stmt 0 view .LVU37
+ 140 0032 0023     		movs	r3, #0
+ 141              	.LVL9:
+ 142              		.loc 1 51 25 view .LVU38
+ 143 0034 0493     		str	r3, [sp, #16]
+  52:bsp/bsp_tools.c ****     threadDef.stacksize = 128;
+ 144              		.loc 1 52 5 is_stmt 1 view .LVU39
+ 145              		.loc 1 52 25 is_stmt 0 view .LVU40
+ 146 0036 8023     		movs	r3, #128
+ 147 0038 0593     		str	r3, [sp, #20]
+  53:bsp/bsp_tools.c ****     cbkid_list[sig_idx] = osThreadCreate(&threadDef, (void *)&cbkinfo_list[sig_idx]);
+ 148              		.loc 1 53 5 is_stmt 1 view .LVU41
+ 149              		.loc 1 53 27 is_stmt 0 view .LVU42
+ 150 003a 6146     		mov	r1, ip
+ 151 003c 01A8     		add	r0, sp, #4
+ 152              	.LVL10:
+ 153              		.loc 1 53 27 view .LVU43
+ 154 003e FFF7FEFF 		bl	osThreadCreate
+ 155              	.LVL11:
+ 156              		.loc 1 53 25 view .LVU44
+ 157 0042 0A4B     		ldr	r3, .L8+12
+ 158 0044 43F82400 		str	r0, [r3, r4, lsl #2]
+  54:bsp/bsp_tools.c **** 
+  55:bsp/bsp_tools.c ****     return cbkinfo_list[sig_idx++].sig; // 返回信号量,同时增加索引
+ 159              		.loc 1 55 5 is_stmt 1 view .LVU45
+ 160              		.loc 1 55 32 is_stmt 0 view .LVU46
+ 161 0048 054A     		ldr	r2, .L8
+ 162 004a 1378     		ldrb	r3, [r2]	@ zero_extendqisi2
+ 163 004c 591C     		adds	r1, r3, #1
+ 164 004e 1170     		strb	r1, [r2]
+ 165              		.loc 1 55 35 view .LVU47
+ 166 0050 03EB4303 		add	r3, r3, r3, lsl #1
+ 167 0054 05EB8305 		add	r5, r5, r3, lsl #2
+  56:bsp/bsp_tools.c **** }...
+ 168              		.loc 1 56 1 view .LVU48
+ 169 0058 6868     		ldr	r0, [r5, #4]
+ 170 005a 09B0     		add	sp, sp, #36
+ 171              	.LCFI4:
+ 172              		.cfi_def_cfa_offset 12
+ 173              		@ sp needed
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s 			page 5
+
+
+ 174 005c 30BD     		pop	{r4, r5, pc}
+ 175              	.L9:
+ 176 005e 00BF     		.align	2
+ 177              	.L8:
+ 178 0060 00000000 		.word	.LANCHOR0
+ 179 0064 00000000 		.word	.LANCHOR1
+ 180 0068 00000000 		.word	CallbackTaskBase
+ 181 006c 00000000 		.word	.LANCHOR2
+ 182              		.cfi_endproc
+ 183              	.LFE9:
+ 185              		.section	.bss.cbkid_list,"aw",%nobits
+ 186              		.align	2
+ 187              		.set	.LANCHOR2,. + 0
+ 190              	cbkid_list:
+ 191 0000 00000000 		.space	128
+ 191      00000000 
+ 191      00000000 
+ 191      00000000 
+ 191      00000000 
+ 192              		.section	.bss.cbkinfo_list,"aw",%nobits
+ 193              		.align	2
+ 194              		.set	.LANCHOR1,. + 0
+ 197              	cbkinfo_list:
+ 198 0000 00000000 		.space	384
+ 198      00000000 
+ 198      00000000 
+ 198      00000000 
+ 198      00000000 
+ 199              		.section	.bss.sig_idx,"aw",%nobits
+ 200              		.set	.LANCHOR0,. + 0
+ 203              	sig_idx:
+ 204 0000 00       		.space	1
+ 205              		.text
+ 206              	.Letext0:
+ 207              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 208              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ 209              		.file 4 "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/portmacro.h"
+ 210              		.file 5 "Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h"
+ 211              		.file 6 "Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
+ 212              		.file 7 "Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS/cmsis_os.h"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s 			page 6
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 bsp_tools.c
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:20     .text.CallbackTaskBase:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:25     .text.CallbackTaskBase:00000000 CallbackTaskBase
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:72     .text.CreateCallbackTask:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:78     .text.CreateCallbackTask:00000000 CreateCallbackTask
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:178    .text.CreateCallbackTask:00000060 $d
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:186    .bss.cbkid_list:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:190    .bss.cbkid_list:00000000 cbkid_list
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:193    .bss.cbkinfo_list:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:197    .bss.cbkinfo_list:00000000 cbkinfo_list
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:203    .bss.sig_idx:00000000 sig_idx
+C:\Users\z0147233\AppData\Local\Temp\ccs6sjza.s:204    .bss.sig_idx:00000000 $d
+
+UNDEFINED SYMBOLS
+osSignalWait
+osThreadCreate

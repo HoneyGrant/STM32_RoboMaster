@@ -1,0 +1,1898 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"dji_motor.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.MotorSenderGrouping,"ax",%progbits
+  20              		.align	1
+  21              		.syntax unified
+  22              		.thumb
+  23              		.thumb_func
+  25              	MotorSenderGrouping:
+  26              	.LVL0:
+  27              	.LFB271:
+  28              		.file 1 "modules/motor/DJImotor/dji_motor.c"
+   1:modules/motor/DJImotor/dji_motor.c **** #include "dji_motor.h"
+   2:modules/motor/DJImotor/dji_motor.c **** #include "general_def.h"
+   3:modules/motor/DJImotor/dji_motor.c **** #include "bsp_dwt.h"
+   4:modules/motor/DJImotor/dji_motor.c **** #include "bsp_log.h"
+   5:modules/motor/DJImotor/dji_motor.c **** 
+   6:modules/motor/DJImotor/dji_motor.c **** static uint8_t idx = 0; // register idx,是该文件的全局电机索引,在注册时使用
+   7:modules/motor/DJImotor/dji_motor.c **** /* DJI电机的实例,此处仅保存指针,内存的分配将通过电机实例初始化时通过m
+   8:modules/motor/DJImotor/dji_motor.c **** static DJIMotorInstance *dji_motor_instance[DJI_MOTOR_CNT] = {NULL}; // 会在control任务中遍�
+   9:modules/motor/DJImotor/dji_motor.c **** 
+  10:modules/motor/DJImotor/dji_motor.c **** /**
+  11:modules/motor/DJImotor/dji_motor.c ****  * @brief 由于DJI电机发送以四个一组的形式进行,故对其进行特殊处理,用6个(2
+  12:modules/motor/DJImotor/dji_motor.c ****  *        该变量将在 DJIMotorControl() 中使用,分组在 MotorSenderGrouping()中进行
+  13:modules/motor/DJImotor/dji_motor.c ****  *
+  14:modules/motor/DJImotor/dji_motor.c ****  * @note  因为只用于发送,所以不需要在bsp_can中注册
+  15:modules/motor/DJImotor/dji_motor.c ****  *
+  16:modules/motor/DJImotor/dji_motor.c ****  * C610(m2006)/C620(m3508):0x1ff,0x200;
+  17:modules/motor/DJImotor/dji_motor.c ****  * GM6020:0x1ff,0x2ff
+  18:modules/motor/DJImotor/dji_motor.c ****  * 反馈(rx_id): GM6020: 0x204+id ; C610/C620: 0x200+id
+  19:modules/motor/DJImotor/dji_motor.c ****  * can1: [0]:0x1FF,[1]:0x200,[2]:0x2FF
+  20:modules/motor/DJImotor/dji_motor.c ****  * can2: [3]:0x1FF,[4]:0x200,[5]:0x2FF
+  21:modules/motor/DJImotor/dji_motor.c ****  */
+  22:modules/motor/DJImotor/dji_motor.c **** static CANInstance sender_assignment[6] = {
+  23:modules/motor/DJImotor/dji_motor.c ****     [0] = {.can_handle = &hcan1, .txconf.StdId = 0x1ff, .txconf.IDE = CAN_ID_STD, .txconf.RTR = CAN
+  24:modules/motor/DJImotor/dji_motor.c ****     [1] = {.can_handle = &hcan1, .txconf.StdId = 0x200, .txconf.IDE = CAN_ID_STD, .txconf.RTR = CAN
+  25:modules/motor/DJImotor/dji_motor.c ****     [2] = {.can_handle = &hcan1, .txconf.StdId = 0x2ff, .txconf.IDE = CAN_ID_STD, .txconf.RTR = CAN
+  26:modules/motor/DJImotor/dji_motor.c ****     [3] = {.can_handle = &hcan2, .txconf.StdId = 0x1ff, .txconf.IDE = CAN_ID_STD, .txconf.RTR = CAN
+  27:modules/motor/DJImotor/dji_motor.c ****     [4] = {.can_handle = &hcan2, .txconf.StdId = 0x200, .txconf.IDE = CAN_ID_STD, .txconf.RTR = CAN
+  28:modules/motor/DJImotor/dji_motor.c ****     [5] = {.can_handle = &hcan2, .txconf.StdId = 0x2ff, .txconf.IDE = CAN_ID_STD, .txconf.RTR = CAN
+  29:modules/motor/DJImotor/dji_motor.c **** };
+  30:modules/motor/DJImotor/dji_motor.c **** 
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 2
+
+
+  31:modules/motor/DJImotor/dji_motor.c **** /**
+  32:modules/motor/DJImotor/dji_motor.c ****  * @brief 6个用于确认是否有电机注册到sender_assignment中的标志位,防止发送空�
+  33:modules/motor/DJImotor/dji_motor.c ****  *        flag的初始化在 MotorSenderGrouping()中进行
+  34:modules/motor/DJImotor/dji_motor.c ****  */
+  35:modules/motor/DJImotor/dji_motor.c **** static uint8_t sender_enable_flag[6] = {0};
+  36:modules/motor/DJImotor/dji_motor.c **** 
+  37:modules/motor/DJImotor/dji_motor.c **** /**
+  38:modules/motor/DJImotor/dji_motor.c ****  * @brief 根据电调/拨码开关上的ID,根据说明书的默认id分配方式计算发送ID和
+  39:modules/motor/DJImotor/dji_motor.c ****  *        并对电机进行分组以便处理多电机控制命令
+  40:modules/motor/DJImotor/dji_motor.c ****  */
+  41:modules/motor/DJImotor/dji_motor.c **** static void MotorSenderGrouping(DJIMotorInstance *motor, CAN_Init_Config_s *config)
+  42:modules/motor/DJImotor/dji_motor.c **** {
+  29              		.loc 1 42 1 view -0
+  30              		.cfi_startproc
+  31              		@ args = 0, pretend = 0, frame = 0
+  32              		@ frame_needed = 0, uses_anonymous_args = 0
+  33              		@ link register save eliminated.
+  34              		.loc 1 42 1 is_stmt 0 view .LVU1
+  35 0000 30B4     		push	{r4, r5}
+  36              	.LCFI0:
+  37              		.cfi_def_cfa_offset 8
+  38              		.cfi_offset 4, -8
+  39              		.cfi_offset 5, -4
+  43:modules/motor/DJImotor/dji_motor.c ****     uint8_t motor_id = config->tx_id - 1; // 下标从零开始,先减一方便赋值
+  40              		.loc 1 43 5 is_stmt 1 view .LVU2
+  41              		.loc 1 43 38 is_stmt 0 view .LVU3
+  42 0002 91F804C0 		ldrb	ip, [r1, #4]	@ zero_extendqisi2
+  43              		.loc 1 43 13 view .LVU4
+  44 0006 0CF1FF32 		add	r2, ip, #-1
+  45 000a D2B2     		uxtb	r2, r2
+  46              	.LVL1:
+  44:modules/motor/DJImotor/dji_motor.c ****     uint8_t motor_send_num;
+  47              		.loc 1 44 5 is_stmt 1 view .LVU5
+  45:modules/motor/DJImotor/dji_motor.c ****     uint8_t motor_grouping;
+  48              		.loc 1 45 5 view .LVU6
+  46:modules/motor/DJImotor/dji_motor.c **** 
+  47:modules/motor/DJImotor/dji_motor.c ****     switch (motor->motor_type)
+  49              		.loc 1 47 5 view .LVU7
+  50              		.loc 1 47 18 is_stmt 0 view .LVU8
+  51 000c 90F8A631 		ldrb	r3, [r0, #422]	@ zero_extendqisi2
+  52              		.loc 1 47 5 view .LVU9
+  53 0010 012B     		cmp	r3, #1
+  54 0012 3ED0     		beq	.L2
+  55 0014 5CB2     		sxtb	r4, r3
+  56 0016 002C     		cmp	r4, #0
+  57 0018 73D0     		beq	.L3
+  58 001a 023B     		subs	r3, r3, #2
+  59 001c DBB2     		uxtb	r3, r3
+  60 001e 012B     		cmp	r3, #1
+  61 0020 6FD8     		bhi	.L3
+  48:modules/motor/DJImotor/dji_motor.c ****     {
+  49:modules/motor/DJImotor/dji_motor.c ****     case M2006:
+  50:modules/motor/DJImotor/dji_motor.c ****     case M3508:
+  51:modules/motor/DJImotor/dji_motor.c ****         if (motor_id < 4) // 根据ID分组
+  62              		.loc 1 51 9 is_stmt 1 view .LVU10
+  63              		.loc 1 51 12 is_stmt 0 view .LVU11
+  64 0022 032A     		cmp	r2, #3
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 3
+
+
+  65 0024 16D8     		bhi	.L4
+  52:modules/motor/DJImotor/dji_motor.c ****         {
+  53:modules/motor/DJImotor/dji_motor.c ****             motor_send_num = motor_id;
+  66              		.loc 1 53 13 is_stmt 1 view .LVU12
+  67              	.LVL2:
+  54:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 1 : 4;
+  68              		.loc 1 54 13 view .LVU13
+  69              		.loc 1 54 36 is_stmt 0 view .LVU14
+  70 0026 0C68     		ldr	r4, [r1]
+  71              		.loc 1 54 28 view .LVU15
+  72 0028 374B     		ldr	r3, .L26
+  73 002a 9C42     		cmp	r4, r3
+  74 002c 0FD0     		beq	.L22
+  53:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 1 : 4;
+  75              		.loc 1 53 28 view .LVU16
+  76 002e 1346     		mov	r3, r2
+  77              		.loc 1 54 28 view .LVU17
+  78 0030 0424     		movs	r4, #4
+  79              	.LVL3:
+  80              	.L5:
+  55:modules/motor/DJImotor/dji_motor.c ****         }
+  56:modules/motor/DJImotor/dji_motor.c ****         else
+  57:modules/motor/DJImotor/dji_motor.c ****         {
+  58:modules/motor/DJImotor/dji_motor.c ****             motor_send_num = motor_id - 4;
+  59:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 0 : 3;
+  60:modules/motor/DJImotor/dji_motor.c ****         }
+  61:modules/motor/DJImotor/dji_motor.c **** 
+  62:modules/motor/DJImotor/dji_motor.c ****         // 计算接收id并设置分组发送id
+  63:modules/motor/DJImotor/dji_motor.c ****         config->rx_id = 0x200 + motor_id + 1;   // 把ID+1,进行分组设置
+  81              		.loc 1 63 9 is_stmt 1 view .LVU18
+  82              		.loc 1 63 42 is_stmt 0 view .LVU19
+  83 0032 02F20122 		addw	r2, r2, #513
+  84              	.LVL4:
+  85              		.loc 1 63 23 view .LVU20
+  86 0036 8A60     		str	r2, [r1, #8]
+  64:modules/motor/DJImotor/dji_motor.c ****         sender_enable_flag[motor_grouping] = 1; // 设置发送标志位,防止发送空帧
+  87              		.loc 1 64 9 is_stmt 1 view .LVU21
+  88              		.loc 1 64 44 is_stmt 0 view .LVU22
+  89 0038 344A     		ldr	r2, .L26+4
+  90              	.LVL5:
+  91              		.loc 1 64 44 view .LVU23
+  92 003a 4FF0010C 		mov	ip, #1
+  93 003e 02F804C0 		strb	ip, [r2, r4]
+  65:modules/motor/DJImotor/dji_motor.c ****         motor->message_num = motor_send_num;
+  94              		.loc 1 65 9 is_stmt 1 view .LVU24
+  95              		.loc 1 65 28 is_stmt 0 view .LVU25
+  96 0042 80F8A531 		strb	r3, [r0, #421]
+  97              	.LVL6:
+  66:modules/motor/DJImotor/dji_motor.c ****         motor->sender_group = motor_grouping;
+  98              		.loc 1 66 9 is_stmt 1 view .LVU26
+  99              		.loc 1 66 29 is_stmt 0 view .LVU27
+ 100 0046 80F8A441 		strb	r4, [r0, #420]
+  67:modules/motor/DJImotor/dji_motor.c **** 
+  68:modules/motor/DJImotor/dji_motor.c ****         // 检查是否发生id冲突
+  69:modules/motor/DJImotor/dji_motor.c ****         for (size_t i = 0; i < idx; ++i)
+ 101              		.loc 1 69 9 is_stmt 1 view .LVU28
+ 102              	.LBB2:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 4
+
+
+ 103              		.loc 1 69 14 view .LVU29
+ 104              	.LVL7:
+ 105              		.loc 1 69 21 is_stmt 0 view .LVU30
+ 106 004a 0023     		movs	r3, #0
+ 107              	.LVL8:
+ 108              		.loc 1 69 9 view .LVU31
+ 109 004c 0EE0     		b	.L6
+ 110              	.LVL9:
+ 111              	.L22:
+ 112              		.loc 1 69 9 view .LVU32
+ 113              	.LBE2:
+  53:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 1 : 4;
+ 114              		.loc 1 53 28 view .LVU33
+ 115 004e 1346     		mov	r3, r2
+  54:modules/motor/DJImotor/dji_motor.c ****         }
+ 116              		.loc 1 54 28 view .LVU34
+ 117 0050 0124     		movs	r4, #1
+ 118 0052 EEE7     		b	.L5
+ 119              	.LVL10:
+ 120              	.L4:
+  58:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 0 : 3;
+ 121              		.loc 1 58 13 is_stmt 1 view .LVU35
+  58:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 0 : 3;
+ 122              		.loc 1 58 28 is_stmt 0 view .LVU36
+ 123 0054 ACF10503 		sub	r3, ip, #5
+ 124 0058 DBB2     		uxtb	r3, r3
+ 125              	.LVL11:
+  59:modules/motor/DJImotor/dji_motor.c ****         }
+ 126              		.loc 1 59 13 is_stmt 1 view .LVU37
+  59:modules/motor/DJImotor/dji_motor.c ****         }
+ 127              		.loc 1 59 28 is_stmt 0 view .LVU38
+ 128 005a 2B4C     		ldr	r4, .L26
+ 129 005c 0D68     		ldr	r5, [r1]
+ 130 005e A542     		cmp	r5, r4
+ 131 0060 01D0     		beq	.L23
+ 132 0062 0324     		movs	r4, #3
+ 133 0064 E5E7     		b	.L5
+ 134              	.L23:
+ 135 0066 0024     		movs	r4, #0
+ 136 0068 E3E7     		b	.L5
+ 137              	.LVL12:
+ 138              	.L7:
+ 139              	.LBB3:
+ 140              		.loc 1 69 37 is_stmt 1 discriminator 2 view .LVU39
+ 141 006a 0133     		adds	r3, r3, #1
+ 142              	.LVL13:
+ 143              	.L6:
+ 144              		.loc 1 69 28 discriminator 1 view .LVU40
+ 145              		.loc 1 69 30 is_stmt 0 discriminator 1 view .LVU41
+ 146 006c 284A     		ldr	r2, .L26+8
+ 147 006e 1278     		ldrb	r2, [r2]	@ zero_extendqisi2
+ 148              		.loc 1 69 9 discriminator 1 view .LVU42
+ 149 0070 9A42     		cmp	r2, r3
+ 150 0072 47D9     		bls	.L1
+  70:modules/motor/DJImotor/dji_motor.c ****         {
+  71:modules/motor/DJImotor/dji_motor.c ****             if (dji_motor_instance[i]->motor_can_instance->can_handle == config->can_handle && dji_
+ 151              		.loc 1 71 13 is_stmt 1 view .LVU43
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 5
+
+
+ 152              		.loc 1 71 35 is_stmt 0 view .LVU44
+ 153 0074 274A     		ldr	r2, .L26+12
+ 154 0076 52F82320 		ldr	r2, [r2, r3, lsl #2]
+ 155              		.loc 1 71 38 view .LVU45
+ 156 007a D2F8A021 		ldr	r2, [r2, #416]
+ 157              		.loc 1 71 58 view .LVU46
+ 158 007e D2F800C0 		ldr	ip, [r2]	@ unaligned
+ 159              		.loc 1 71 80 view .LVU47
+ 160 0082 0868     		ldr	r0, [r1]
+ 161              		.loc 1 71 16 view .LVU48
+ 162 0084 8445     		cmp	ip, r0
+ 163 0086 F0D1     		bne	.L7
+ 164              		.loc 1 71 137 discriminator 1 view .LVU49
+ 165 0088 506B     		ldr	r0, [r2, #52]	@ unaligned
+ 166              		.loc 1 71 154 discriminator 1 view .LVU50
+ 167 008a 8A68     		ldr	r2, [r1, #8]
+ 168              		.loc 1 71 93 discriminator 1 view .LVU51
+ 169 008c 9042     		cmp	r0, r2
+ 170 008e ECD1     		bne	.L7
+ 171              	.L8:
+ 172              	.LBE3:
+  72:modules/motor/DJImotor/dji_motor.c ****             {
+  73:modules/motor/DJImotor/dji_motor.c ****                 LOGERROR("[dji_motor] ID crash. Check in debug mode, add dji_motor_instance to watc
+  74:modules/motor/DJImotor/dji_motor.c ****                 uint16_t can_bus = config->can_handle == &hcan1 ? 1 : 2;
+  75:modules/motor/DJImotor/dji_motor.c ****                 while (1) // 6020的id 1-4和2006/3508的id 5-8会发生冲突(若有注册,即1!5,
+ 173              		.loc 1 75 17 is_stmt 1 discriminator 1 view .LVU52
+  76:modules/motor/DJImotor/dji_motor.c ****                     LOGERROR("[dji_motor] id [%d], can_bus [%d]", config->rx_id, can_bus);
+ 174              		.loc 1 76 90 discriminator 1 view .LVU53
+  75:modules/motor/DJImotor/dji_motor.c ****                     LOGERROR("[dji_motor] id [%d], can_bus [%d]", config->rx_id, can_bus);
+ 175              		.loc 1 75 23 discriminator 1 view .LVU54
+ 176 0090 FEE7     		b	.L8
+ 177              	.LVL14:
+ 178              	.L2:
+  77:modules/motor/DJImotor/dji_motor.c ****             }
+  78:modules/motor/DJImotor/dji_motor.c ****         }
+  79:modules/motor/DJImotor/dji_motor.c ****         break;
+  80:modules/motor/DJImotor/dji_motor.c **** 
+  81:modules/motor/DJImotor/dji_motor.c ****     case GM6020:
+  82:modules/motor/DJImotor/dji_motor.c ****         if (motor_id < 4)
+ 179              		.loc 1 82 9 view .LVU55
+ 180              		.loc 1 82 12 is_stmt 0 view .LVU56
+ 181 0092 032A     		cmp	r2, #3
+ 182 0094 16D8     		bhi	.L11
+  83:modules/motor/DJImotor/dji_motor.c ****         {
+  84:modules/motor/DJImotor/dji_motor.c ****             motor_send_num = motor_id;
+ 183              		.loc 1 84 13 is_stmt 1 view .LVU57
+ 184              	.LVL15:
+  85:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 0 : 3;
+ 185              		.loc 1 85 13 view .LVU58
+ 186              		.loc 1 85 36 is_stmt 0 view .LVU59
+ 187 0096 0C68     		ldr	r4, [r1]
+ 188              		.loc 1 85 28 view .LVU60
+ 189 0098 1B4B     		ldr	r3, .L26
+ 190 009a 9C42     		cmp	r4, r3
+ 191 009c 0FD0     		beq	.L24
+  84:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 0 : 3;
+ 192              		.loc 1 84 28 view .LVU61
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 6
+
+
+ 193 009e 1346     		mov	r3, r2
+ 194              		.loc 1 85 28 view .LVU62
+ 195 00a0 0324     		movs	r4, #3
+ 196              	.LVL16:
+ 197              	.L12:
+  86:modules/motor/DJImotor/dji_motor.c ****         }
+  87:modules/motor/DJImotor/dji_motor.c ****         else
+  88:modules/motor/DJImotor/dji_motor.c ****         {
+  89:modules/motor/DJImotor/dji_motor.c ****             motor_send_num = motor_id - 4;
+  90:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 2 : 5;
+  91:modules/motor/DJImotor/dji_motor.c ****         }
+  92:modules/motor/DJImotor/dji_motor.c **** 
+  93:modules/motor/DJImotor/dji_motor.c ****         config->rx_id = 0x204 + motor_id + 1;   // 把ID+1,进行分组设置
+ 198              		.loc 1 93 9 is_stmt 1 view .LVU63
+ 199              		.loc 1 93 42 is_stmt 0 view .LVU64
+ 200 00a2 02F20522 		addw	r2, r2, #517
+ 201              	.LVL17:
+ 202              		.loc 1 93 23 view .LVU65
+ 203 00a6 8A60     		str	r2, [r1, #8]
+  94:modules/motor/DJImotor/dji_motor.c ****         sender_enable_flag[motor_grouping] = 1; // 只要有电机注册到这个分组,置为1;在
+ 204              		.loc 1 94 9 is_stmt 1 view .LVU66
+ 205              		.loc 1 94 44 is_stmt 0 view .LVU67
+ 206 00a8 184A     		ldr	r2, .L26+4
+ 207              	.LVL18:
+ 208              		.loc 1 94 44 view .LVU68
+ 209 00aa 4FF0010C 		mov	ip, #1
+ 210 00ae 02F804C0 		strb	ip, [r2, r4]
+  95:modules/motor/DJImotor/dji_motor.c ****         motor->message_num = motor_send_num;
+ 211              		.loc 1 95 9 is_stmt 1 view .LVU69
+ 212              		.loc 1 95 28 is_stmt 0 view .LVU70
+ 213 00b2 80F8A531 		strb	r3, [r0, #421]
+ 214              	.LVL19:
+  96:modules/motor/DJImotor/dji_motor.c ****         motor->sender_group = motor_grouping;
+ 215              		.loc 1 96 9 is_stmt 1 view .LVU71
+ 216              		.loc 1 96 29 is_stmt 0 view .LVU72
+ 217 00b6 80F8A441 		strb	r4, [r0, #420]
+  97:modules/motor/DJImotor/dji_motor.c **** 
+  98:modules/motor/DJImotor/dji_motor.c ****         for (size_t i = 0; i < idx; ++i)
+ 218              		.loc 1 98 9 is_stmt 1 view .LVU73
+ 219              	.LBB4:
+ 220              		.loc 1 98 14 view .LVU74
+ 221              	.LVL20:
+ 222              		.loc 1 98 21 is_stmt 0 view .LVU75
+ 223 00ba 0023     		movs	r3, #0
+ 224              	.LVL21:
+ 225              		.loc 1 98 9 view .LVU76
+ 226 00bc 0EE0     		b	.L13
+ 227              	.LVL22:
+ 228              	.L24:
+ 229              		.loc 1 98 9 view .LVU77
+ 230              	.LBE4:
+  84:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 0 : 3;
+ 231              		.loc 1 84 28 view .LVU78
+ 232 00be 1346     		mov	r3, r2
+  85:modules/motor/DJImotor/dji_motor.c ****         }
+ 233              		.loc 1 85 28 view .LVU79
+ 234 00c0 0024     		movs	r4, #0
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 7
+
+
+ 235 00c2 EEE7     		b	.L12
+ 236              	.LVL23:
+ 237              	.L11:
+  89:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 2 : 5;
+ 238              		.loc 1 89 13 is_stmt 1 view .LVU80
+  89:modules/motor/DJImotor/dji_motor.c ****             motor_grouping = config->can_handle == &hcan1 ? 2 : 5;
+ 239              		.loc 1 89 28 is_stmt 0 view .LVU81
+ 240 00c4 ACF10503 		sub	r3, ip, #5
+ 241 00c8 DBB2     		uxtb	r3, r3
+ 242              	.LVL24:
+  90:modules/motor/DJImotor/dji_motor.c ****         }
+ 243              		.loc 1 90 13 is_stmt 1 view .LVU82
+  90:modules/motor/DJImotor/dji_motor.c ****         }
+ 244              		.loc 1 90 28 is_stmt 0 view .LVU83
+ 245 00ca 0F4C     		ldr	r4, .L26
+ 246 00cc 0D68     		ldr	r5, [r1]
+ 247 00ce A542     		cmp	r5, r4
+ 248 00d0 01D0     		beq	.L25
+ 249 00d2 0524     		movs	r4, #5
+ 250 00d4 E5E7     		b	.L12
+ 251              	.L25:
+ 252 00d6 0224     		movs	r4, #2
+ 253 00d8 E3E7     		b	.L12
+ 254              	.LVL25:
+ 255              	.L14:
+ 256              	.LBB5:
+ 257              		.loc 1 98 37 is_stmt 1 discriminator 2 view .LVU84
+ 258 00da 0133     		adds	r3, r3, #1
+ 259              	.LVL26:
+ 260              	.L13:
+ 261              		.loc 1 98 28 discriminator 1 view .LVU85
+ 262              		.loc 1 98 30 is_stmt 0 discriminator 1 view .LVU86
+ 263 00dc 0C4A     		ldr	r2, .L26+8
+ 264 00de 1278     		ldrb	r2, [r2]	@ zero_extendqisi2
+ 265              		.loc 1 98 9 discriminator 1 view .LVU87
+ 266 00e0 9A42     		cmp	r2, r3
+ 267 00e2 0FD9     		bls	.L1
+  99:modules/motor/DJImotor/dji_motor.c ****         {
+ 100:modules/motor/DJImotor/dji_motor.c ****             if (dji_motor_instance[i]->motor_can_instance->can_handle == config->can_handle && dji_
+ 268              		.loc 1 100 13 is_stmt 1 view .LVU88
+ 269              		.loc 1 100 35 is_stmt 0 view .LVU89
+ 270 00e4 0B4A     		ldr	r2, .L26+12
+ 271 00e6 52F82320 		ldr	r2, [r2, r3, lsl #2]
+ 272              		.loc 1 100 38 view .LVU90
+ 273 00ea D2F8A021 		ldr	r2, [r2, #416]
+ 274              		.loc 1 100 58 view .LVU91
+ 275 00ee D2F800C0 		ldr	ip, [r2]	@ unaligned
+ 276              		.loc 1 100 80 view .LVU92
+ 277 00f2 0868     		ldr	r0, [r1]
+ 278              		.loc 1 100 16 view .LVU93
+ 279 00f4 8445     		cmp	ip, r0
+ 280 00f6 F0D1     		bne	.L14
+ 281              		.loc 1 100 137 discriminator 1 view .LVU94
+ 282 00f8 506B     		ldr	r0, [r2, #52]	@ unaligned
+ 283              		.loc 1 100 154 discriminator 1 view .LVU95
+ 284 00fa 8A68     		ldr	r2, [r1, #8]
+ 285              		.loc 1 100 93 discriminator 1 view .LVU96
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 8
+
+
+ 286 00fc 9042     		cmp	r0, r2
+ 287 00fe ECD1     		bne	.L14
+ 288              	.L15:
+ 289              	.LBE5:
+ 101:modules/motor/DJImotor/dji_motor.c ****             {
+ 102:modules/motor/DJImotor/dji_motor.c ****                 LOGERROR("[dji_motor] ID crash. Check in debug mode, add dji_motor_instance to watc
+ 103:modules/motor/DJImotor/dji_motor.c ****                 uint16_t can_bus = config->can_handle == &hcan1 ? 1 : 2;
+ 104:modules/motor/DJImotor/dji_motor.c ****                 while (1) // 6020的id 1-4和2006/3508的id 5-8会发生冲突(若有注册,即1!5,
+ 290              		.loc 1 104 17 is_stmt 1 discriminator 2 view .LVU97
+ 105:modules/motor/DJImotor/dji_motor.c ****                     LOGERROR("[dji_motor] id [%d], can_bus [%d]", config->rx_id, can_bus);
+ 291              		.loc 1 105 90 discriminator 2 view .LVU98
+ 104:modules/motor/DJImotor/dji_motor.c ****                     LOGERROR("[dji_motor] id [%d], can_bus [%d]", config->rx_id, can_bus);
+ 292              		.loc 1 104 23 discriminator 2 view .LVU99
+ 293 0100 FEE7     		b	.L15
+ 294              	.LVL27:
+ 295              	.L3:
+ 106:modules/motor/DJImotor/dji_motor.c ****             }
+ 107:modules/motor/DJImotor/dji_motor.c ****         }
+ 108:modules/motor/DJImotor/dji_motor.c ****         break;
+ 109:modules/motor/DJImotor/dji_motor.c **** 
+ 110:modules/motor/DJImotor/dji_motor.c ****     default: // other motors should not be registered here
+ 111:modules/motor/DJImotor/dji_motor.c ****         while (1)
+ 296              		.loc 1 111 9 discriminator 1 view .LVU100
+ 112:modules/motor/DJImotor/dji_motor.c ****             LOGERROR("[dji_motor]You must not register other motors using the API of DJI motor."); 
+ 297              		.loc 1 112 98 discriminator 1 view .LVU101
+ 111:modules/motor/DJImotor/dji_motor.c ****             LOGERROR("[dji_motor]You must not register other motors using the API of DJI motor."); 
+ 298              		.loc 1 111 15 discriminator 1 view .LVU102
+ 299 0102 FEE7     		b	.L3
+ 300              	.LVL28:
+ 301              	.L1:
+ 113:modules/motor/DJImotor/dji_motor.c ****     }
+ 114:modules/motor/DJImotor/dji_motor.c **** }
+ 302              		.loc 1 114 1 is_stmt 0 view .LVU103
+ 303 0104 30BC     		pop	{r4, r5}
+ 304              	.LCFI1:
+ 305              		.cfi_restore 5
+ 306              		.cfi_restore 4
+ 307              		.cfi_def_cfa_offset 0
+ 308              	.LVL29:
+ 309              		.loc 1 114 1 view .LVU104
+ 310 0106 7047     		bx	lr
+ 311              	.L27:
+ 312              		.align	2
+ 313              	.L26:
+ 314 0108 00000000 		.word	hcan1
+ 315 010c 00000000 		.word	.LANCHOR0
+ 316 0110 00000000 		.word	.LANCHOR2
+ 317 0114 00000000 		.word	.LANCHOR1
+ 318              		.cfi_endproc
+ 319              	.LFE271:
+ 321              		.section	.text.DJIMotorLostCallback,"ax",%progbits
+ 322              		.align	1
+ 323              		.syntax unified
+ 324              		.thumb
+ 325              		.thumb_func
+ 327              	DJIMotorLostCallback:
+ 328              	.LVL30:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 9
+
+
+ 329              	.LFB273:
+ 115:modules/motor/DJImotor/dji_motor.c **** 
+ 116:modules/motor/DJImotor/dji_motor.c **** /**
+ 117:modules/motor/DJImotor/dji_motor.c ****  * @todo  是否可以简化多圈角度的计算？
+ 118:modules/motor/DJImotor/dji_motor.c ****  * @brief 根据返回的can_instance对反馈报文进行解析
+ 119:modules/motor/DJImotor/dji_motor.c ****  *
+ 120:modules/motor/DJImotor/dji_motor.c ****  * @param _instance 收到数据的instance,通过遍历与所有电机进行对比以选择正确�
+ 121:modules/motor/DJImotor/dji_motor.c ****  */
+ 122:modules/motor/DJImotor/dji_motor.c **** static void DecodeDJIMotor(CANInstance *_instance)
+ 123:modules/motor/DJImotor/dji_motor.c **** {
+ 124:modules/motor/DJImotor/dji_motor.c ****     // 这里对can instance的id进行了强制转换,从而获得电机的instance实例地址
+ 125:modules/motor/DJImotor/dji_motor.c ****     // _instance指针指向的id是对应电机instance的地址,通过强制转换为电机instan
+ 126:modules/motor/DJImotor/dji_motor.c ****     uint8_t *rxbuff = _instance->rx_buff;
+ 127:modules/motor/DJImotor/dji_motor.c ****     DJIMotorInstance *motor = (DJIMotorInstance *)_instance->id;
+ 128:modules/motor/DJImotor/dji_motor.c ****     DJI_Motor_Measure_s *measure = &motor->measure; // measure要多次使用,保存指针减小访
+ 129:modules/motor/DJImotor/dji_motor.c **** 
+ 130:modules/motor/DJImotor/dji_motor.c ****     DaemonReload(motor->daemon);
+ 131:modules/motor/DJImotor/dji_motor.c ****     motor->dt = DWT_GetDeltaT(&motor->feed_cnt);
+ 132:modules/motor/DJImotor/dji_motor.c **** 
+ 133:modules/motor/DJImotor/dji_motor.c ****     // 解析数据并对电流和速度进行滤波,电机的反馈报文具体格式见电机说�
+ 134:modules/motor/DJImotor/dji_motor.c ****     measure->last_ecd = measure->ecd;
+ 135:modules/motor/DJImotor/dji_motor.c ****     measure->ecd = ((uint16_t)rxbuff[0]) << 8 | rxbuff[1];
+ 136:modules/motor/DJImotor/dji_motor.c ****     measure->angle_single_round = ECD_ANGLE_COEF_DJI * (float)measure->ecd;
+ 137:modules/motor/DJImotor/dji_motor.c ****     measure->speed_aps = (1.0f - SPEED_SMOOTH_COEF) * measure->speed_aps +
+ 138:modules/motor/DJImotor/dji_motor.c ****                          RPM_2_ANGLE_PER_SEC * SPEED_SMOOTH_COEF * (float)((int16_t)(rxbuff[2] << 8
+ 139:modules/motor/DJImotor/dji_motor.c ****     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
+ 140:modules/motor/DJImotor/dji_motor.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rxbuff[4] << 8 | rxbuff[5]));
+ 141:modules/motor/DJImotor/dji_motor.c ****     measure->temperature = rxbuff[6];
+ 142:modules/motor/DJImotor/dji_motor.c **** 
+ 143:modules/motor/DJImotor/dji_motor.c ****     // 多圈角度计算,前提是假设两次采样间电机转过的角度小于180°,自己画�
+ 144:modules/motor/DJImotor/dji_motor.c ****     if (measure->ecd - measure->last_ecd > 4096)
+ 145:modules/motor/DJImotor/dji_motor.c ****         measure->total_round--;
+ 146:modules/motor/DJImotor/dji_motor.c ****     else if (measure->ecd - measure->last_ecd < -4096)
+ 147:modules/motor/DJImotor/dji_motor.c ****         measure->total_round++;
+ 148:modules/motor/DJImotor/dji_motor.c ****     measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+ 149:modules/motor/DJImotor/dji_motor.c **** }
+ 150:modules/motor/DJImotor/dji_motor.c **** 
+ 151:modules/motor/DJImotor/dji_motor.c **** static void DJIMotorLostCallback(void *motor_ptr)
+ 152:modules/motor/DJImotor/dji_motor.c **** {
+ 330              		.loc 1 152 1 is_stmt 1 view -0
+ 331              		.cfi_startproc
+ 332              		@ args = 0, pretend = 0, frame = 0
+ 333              		@ frame_needed = 0, uses_anonymous_args = 0
+ 334              		@ link register save eliminated.
+ 153:modules/motor/DJImotor/dji_motor.c ****     DJIMotorInstance *motor = (DJIMotorInstance *)motor_ptr;
+ 335              		.loc 1 153 5 view .LVU106
+ 154:modules/motor/DJImotor/dji_motor.c ****     uint16_t can_bus = motor->motor_can_instance->can_handle == &hcan1 ? 1 : 2;
+ 336              		.loc 1 154 5 view .LVU107
+ 155:modules/motor/DJImotor/dji_motor.c ****     LOGWARNING("[dji_motor] Motor lost, can bus [%d] , id [%d]", can_bus, motor->motor_can_instance
+ 337              		.loc 1 155 108 view .LVU108
+ 156:modules/motor/DJImotor/dji_motor.c **** }
+ 338              		.loc 1 156 1 is_stmt 0 view .LVU109
+ 339 0000 7047     		bx	lr
+ 340              		.cfi_endproc
+ 341              	.LFE273:
+ 343              		.section	.text.DecodeDJIMotor,"ax",%progbits
+ 344              		.align	1
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 10
+
+
+ 345              		.syntax unified
+ 346              		.thumb
+ 347              		.thumb_func
+ 349              	DecodeDJIMotor:
+ 350              	.LVL31:
+ 351              	.LFB272:
+ 123:modules/motor/DJImotor/dji_motor.c ****     // 这里对can instance的id进行了强制转换,从而获得电机的instance实例地址
+ 352              		.loc 1 123 1 is_stmt 1 view -0
+ 353              		.cfi_startproc
+ 354              		@ args = 0, pretend = 0, frame = 0
+ 355              		@ frame_needed = 0, uses_anonymous_args = 0
+ 123:modules/motor/DJImotor/dji_motor.c ****     // 这里对can instance的id进行了强制转换,从而获得电机的instance实例地址
+ 356              		.loc 1 123 1 is_stmt 0 view .LVU111
+ 357 0000 38B5     		push	{r3, r4, r5, lr}
+ 358              	.LCFI2:
+ 359              		.cfi_def_cfa_offset 16
+ 360              		.cfi_offset 3, -16
+ 361              		.cfi_offset 4, -12
+ 362              		.cfi_offset 5, -8
+ 363              		.cfi_offset 14, -4
+ 364 0002 0546     		mov	r5, r0
+ 126:modules/motor/DJImotor/dji_motor.c ****     DJIMotorInstance *motor = (DJIMotorInstance *)_instance->id;
+ 365              		.loc 1 126 5 is_stmt 1 view .LVU112
+ 366              	.LVL32:
+ 127:modules/motor/DJImotor/dji_motor.c ****     DJI_Motor_Measure_s *measure = &motor->measure; // measure要多次使用,保存指针减小访
+ 367              		.loc 1 127 5 view .LVU113
+ 127:modules/motor/DJImotor/dji_motor.c ****     DJI_Motor_Measure_s *measure = &motor->measure; // measure要多次使用,保存指针减小访
+ 368              		.loc 1 127 23 is_stmt 0 view .LVU114
+ 369 0004 D0F83D40 		ldr	r4, [r0, #61]	@ unaligned
+ 370              	.LVL33:
+ 128:modules/motor/DJImotor/dji_motor.c **** 
+ 371              		.loc 1 128 5 is_stmt 1 view .LVU115
+ 130:modules/motor/DJImotor/dji_motor.c ****     motor->dt = DWT_GetDeltaT(&motor->feed_cnt);
+ 372              		.loc 1 130 5 view .LVU116
+ 373 0008 D4F8A801 		ldr	r0, [r4, #424]
+ 374              	.LVL34:
+ 130:modules/motor/DJImotor/dji_motor.c ****     motor->dt = DWT_GetDeltaT(&motor->feed_cnt);
+ 375              		.loc 1 130 5 is_stmt 0 view .LVU117
+ 376 000c FFF7FEFF 		bl	DaemonReload
+ 377              	.LVL35:
+ 131:modules/motor/DJImotor/dji_motor.c **** 
+ 378              		.loc 1 131 5 is_stmt 1 view .LVU118
+ 131:modules/motor/DJImotor/dji_motor.c **** 
+ 379              		.loc 1 131 17 is_stmt 0 view .LVU119
+ 380 0010 04F5D670 		add	r0, r4, #428
+ 381 0014 FFF7FEFF 		bl	DWT_GetDeltaT
+ 382              	.LVL36:
+ 131:modules/motor/DJImotor/dji_motor.c **** 
+ 383              		.loc 1 131 15 view .LVU120
+ 384 0018 84ED6C0A 		vstr.32	s0, [r4, #432]
+ 134:modules/motor/DJImotor/dji_motor.c ****     measure->ecd = ((uint16_t)rxbuff[0]) << 8 | rxbuff[1];
+ 385              		.loc 1 134 5 is_stmt 1 view .LVU121
+ 134:modules/motor/DJImotor/dji_motor.c ****     measure->ecd = ((uint16_t)rxbuff[0]) << 8 | rxbuff[1];
+ 386              		.loc 1 134 32 is_stmt 0 view .LVU122
+ 387 001c 6188     		ldrh	r1, [r4, #2]
+ 134:modules/motor/DJImotor/dji_motor.c ****     measure->ecd = ((uint16_t)rxbuff[0]) << 8 | rxbuff[1];
+ 388              		.loc 1 134 23 view .LVU123
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 11
+
+
+ 389 001e 2180     		strh	r1, [r4]	@ movhi
+ 135:modules/motor/DJImotor/dji_motor.c ****     measure->angle_single_round = ECD_ANGLE_COEF_DJI * (float)measure->ecd;
+ 390              		.loc 1 135 5 is_stmt 1 view .LVU124
+ 135:modules/motor/DJImotor/dji_motor.c ****     measure->angle_single_round = ECD_ANGLE_COEF_DJI * (float)measure->ecd;
+ 391              		.loc 1 135 37 is_stmt 0 view .LVU125
+ 392 0020 95F82C30 		ldrb	r3, [r5, #44]	@ zero_extendqisi2
+ 135:modules/motor/DJImotor/dji_motor.c ****     measure->angle_single_round = ECD_ANGLE_COEF_DJI * (float)measure->ecd;
+ 393              		.loc 1 135 55 view .LVU126
+ 394 0024 95F82D20 		ldrb	r2, [r5, #45]	@ zero_extendqisi2
+ 135:modules/motor/DJImotor/dji_motor.c ****     measure->angle_single_round = ECD_ANGLE_COEF_DJI * (float)measure->ecd;
+ 395              		.loc 1 135 47 view .LVU127
+ 396 0028 42EA0322 		orr	r2, r2, r3, lsl #8
+ 135:modules/motor/DJImotor/dji_motor.c ****     measure->angle_single_round = ECD_ANGLE_COEF_DJI * (float)measure->ecd;
+ 397              		.loc 1 135 18 view .LVU128
+ 398 002c 6280     		strh	r2, [r4, #2]	@ movhi
+ 136:modules/motor/DJImotor/dji_motor.c ****     measure->speed_aps = (1.0f - SPEED_SMOOTH_COEF) * measure->speed_aps +
+ 399              		.loc 1 136 5 is_stmt 1 view .LVU129
+ 136:modules/motor/DJImotor/dji_motor.c ****     measure->speed_aps = (1.0f - SPEED_SMOOTH_COEF) * measure->speed_aps +
+ 400              		.loc 1 136 56 is_stmt 0 view .LVU130
+ 401 002e 07EE902A 		vmov	s15, r2	@ int
+ 402 0032 F8EE677A 		vcvt.f32.u32	s15, s15
+ 136:modules/motor/DJImotor/dji_motor.c ****     measure->speed_aps = (1.0f - SPEED_SMOOTH_COEF) * measure->speed_aps +
+ 403              		.loc 1 136 54 view .LVU131
+ 404 0036 DFED2F6A 		vldr.32	s13, .L33
+ 405 003a 67EEA66A 		vmul.f32	s13, s15, s13
+ 136:modules/motor/DJImotor/dji_motor.c ****     measure->speed_aps = (1.0f - SPEED_SMOOTH_COEF) * measure->speed_aps +
+ 406              		.loc 1 136 33 view .LVU132
+ 407 003e C4ED016A 		vstr.32	s13, [r4, #4]
+ 137:modules/motor/DJImotor/dji_motor.c ****                          RPM_2_ANGLE_PER_SEC * SPEED_SMOOTH_COEF * (float)((int16_t)(rxbuff[2] << 8
+ 408              		.loc 1 137 5 is_stmt 1 view .LVU133
+ 137:modules/motor/DJImotor/dji_motor.c ****                          RPM_2_ANGLE_PER_SEC * SPEED_SMOOTH_COEF * (float)((int16_t)(rxbuff[2] << 8
+ 409              		.loc 1 137 62 is_stmt 0 view .LVU134
+ 410 0042 D4ED027A 		vldr.32	s15, [r4, #8]
+ 137:modules/motor/DJImotor/dji_motor.c ****                          RPM_2_ANGLE_PER_SEC * SPEED_SMOOTH_COEF * (float)((int16_t)(rxbuff[2] << 8
+ 411              		.loc 1 137 53 view .LVU135
+ 412 0046 9FED2C7A 		vldr.32	s14, .L33+4
+ 413 004a 27EE877A 		vmul.f32	s14, s15, s14
+ 138:modules/motor/DJImotor/dji_motor.c ****     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
+ 414              		.loc 1 138 92 view .LVU136
+ 415 004e 95F82E00 		ldrb	r0, [r5, #46]	@ zero_extendqisi2
+ 138:modules/motor/DJImotor/dji_motor.c ****     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
+ 416              		.loc 1 138 109 view .LVU137
+ 417 0052 95F82F30 		ldrb	r3, [r5, #47]	@ zero_extendqisi2
+ 138:modules/motor/DJImotor/dji_motor.c ****     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
+ 418              		.loc 1 138 76 view .LVU138
+ 419 0056 43EA0023 		orr	r3, r3, r0, lsl #8
+ 420 005a 1BB2     		sxth	r3, r3
+ 421 005c 07EE903A 		vmov	s15, r3	@ int
+ 138:modules/motor/DJImotor/dji_motor.c ****     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
+ 422              		.loc 1 138 68 view .LVU139
+ 423 0060 F8EEE77A 		vcvt.f32.s32	s15, s15
+ 138:modules/motor/DJImotor/dji_motor.c ****     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
+ 424              		.loc 1 138 66 view .LVU140
+ 425 0064 9FED256A 		vldr.32	s12, .L33+8
+ 426 0068 67EE867A 		vmul.f32	s15, s15, s12
+ 137:modules/motor/DJImotor/dji_motor.c ****                          RPM_2_ANGLE_PER_SEC * SPEED_SMOOTH_COEF * (float)((int16_t)(rxbuff[2] << 8
+ 427              		.loc 1 137 74 view .LVU141
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 12
+
+
+ 428 006c 77EE277A 		vadd.f32	s15, s14, s15
+ 137:modules/motor/DJImotor/dji_motor.c ****                          RPM_2_ANGLE_PER_SEC * SPEED_SMOOTH_COEF * (float)((int16_t)(rxbuff[2] << 8
+ 429              		.loc 1 137 24 view .LVU142
+ 430 0070 C4ED027A 		vstr.32	s15, [r4, #8]
+ 139:modules/motor/DJImotor/dji_motor.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rxbuff[4] << 8 | rxbuff[5]));
+ 431              		.loc 1 139 5 is_stmt 1 view .LVU143
+ 139:modules/motor/DJImotor/dji_motor.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rxbuff[4] << 8 | rxbuff[5]));
+ 432              		.loc 1 139 67 is_stmt 0 view .LVU144
+ 433 0074 B4F90C30 		ldrsh	r3, [r4, #12]
+ 434 0078 07EE903A 		vmov	s15, r3	@ int
+ 139:modules/motor/DJImotor/dji_motor.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rxbuff[4] << 8 | rxbuff[5]));
+ 435              		.loc 1 139 58 view .LVU145
+ 436 007c F8EEE77A 		vcvt.f32.s32	s15, s15
+ 437 0080 9FED1F7A 		vldr.32	s14, .L33+12
+ 438 0084 27EE877A 		vmul.f32	s14, s15, s14
+ 140:modules/motor/DJImotor/dji_motor.c ****     measure->temperature = rxbuff[6];
+ 439              		.loc 1 140 75 view .LVU146
+ 440 0088 95F83000 		ldrb	r0, [r5, #48]	@ zero_extendqisi2
+ 140:modules/motor/DJImotor/dji_motor.c ****     measure->temperature = rxbuff[6];
+ 441              		.loc 1 140 92 view .LVU147
+ 442 008c 95F83130 		ldrb	r3, [r5, #49]	@ zero_extendqisi2
+ 140:modules/motor/DJImotor/dji_motor.c ****     measure->temperature = rxbuff[6];
+ 443              		.loc 1 140 59 view .LVU148
+ 444 0090 43EA0023 		orr	r3, r3, r0, lsl #8
+ 445 0094 1BB2     		sxth	r3, r3
+ 446 0096 07EE903A 		vmov	s15, r3	@ int
+ 140:modules/motor/DJImotor/dji_motor.c ****     measure->temperature = rxbuff[6];
+ 447              		.loc 1 140 51 view .LVU149
+ 448 009a F8EEE77A 		vcvt.f32.s32	s15, s15
+ 140:modules/motor/DJImotor/dji_motor.c ****     measure->temperature = rxbuff[6];
+ 449              		.loc 1 140 49 view .LVU150
+ 450 009e 9FED196A 		vldr.32	s12, .L33+16
+ 451 00a2 67EE867A 		vmul.f32	s15, s15, s12
+ 139:modules/motor/DJImotor/dji_motor.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rxbuff[4] << 8 | rxbuff[5]));
+ 452              		.loc 1 139 82 view .LVU151
+ 453 00a6 77EE277A 		vadd.f32	s15, s14, s15
+ 139:modules/motor/DJImotor/dji_motor.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rxbuff[4] << 8 | rxbuff[5]));
+ 454              		.loc 1 139 27 view .LVU152
+ 455 00aa FDEEE77A 		vcvt.s32.f32	s15, s15
+ 456 00ae 17EE903A 		vmov	r3, s15	@ int
+ 457 00b2 A381     		strh	r3, [r4, #12]	@ movhi
+ 141:modules/motor/DJImotor/dji_motor.c **** 
+ 458              		.loc 1 141 5 is_stmt 1 view .LVU153
+ 141:modules/motor/DJImotor/dji_motor.c **** 
+ 459              		.loc 1 141 26 is_stmt 0 view .LVU154
+ 460 00b4 95F83230 		ldrb	r3, [r5, #50]	@ zero_extendqisi2
+ 461 00b8 A373     		strb	r3, [r4, #14]
+ 144:modules/motor/DJImotor/dji_motor.c ****         measure->total_round--;
+ 462              		.loc 1 144 5 is_stmt 1 view .LVU155
+ 144:modules/motor/DJImotor/dji_motor.c ****         measure->total_round--;
+ 463              		.loc 1 144 22 is_stmt 0 view .LVU156
+ 464 00ba 521A     		subs	r2, r2, r1
+ 144:modules/motor/DJImotor/dji_motor.c ****         measure->total_round--;
+ 465              		.loc 1 144 8 view .LVU157
+ 466 00bc B2F5805F 		cmp	r2, #4096
+ 467 00c0 10DD     		ble	.L30
+ 145:modules/motor/DJImotor/dji_motor.c ****     else if (measure->ecd - measure->last_ecd < -4096)
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 13
+
+
+ 468              		.loc 1 145 9 is_stmt 1 view .LVU158
+ 145:modules/motor/DJImotor/dji_motor.c ****     else if (measure->ecd - measure->last_ecd < -4096)
+ 469              		.loc 1 145 16 is_stmt 0 view .LVU159
+ 470 00c2 6369     		ldr	r3, [r4, #20]
+ 145:modules/motor/DJImotor/dji_motor.c ****     else if (measure->ecd - measure->last_ecd < -4096)
+ 471              		.loc 1 145 29 view .LVU160
+ 472 00c4 013B     		subs	r3, r3, #1
+ 473 00c6 6361     		str	r3, [r4, #20]
+ 474              	.L31:
+ 148:modules/motor/DJImotor/dji_motor.c **** }
+ 475              		.loc 1 148 5 is_stmt 1 view .LVU161
+ 148:modules/motor/DJImotor/dji_motor.c **** }
+ 476              		.loc 1 148 35 is_stmt 0 view .LVU162
+ 477 00c8 6369     		ldr	r3, [r4, #20]
+ 148:modules/motor/DJImotor/dji_motor.c **** }
+ 478              		.loc 1 148 49 view .LVU163
+ 479 00ca 4FF4B472 		mov	r2, #360
+ 480 00ce 02FB03F3 		mul	r3, r2, r3
+ 481 00d2 07EE903A 		vmov	s15, r3	@ int
+ 148:modules/motor/DJImotor/dji_motor.c **** }
+ 482              		.loc 1 148 55 view .LVU164
+ 483 00d6 F8EEE77A 		vcvt.f32.s32	s15, s15
+ 484 00da 77EEA67A 		vadd.f32	s15, s15, s13
+ 148:modules/motor/DJImotor/dji_motor.c **** }
+ 485              		.loc 1 148 26 view .LVU165
+ 486 00de C4ED047A 		vstr.32	s15, [r4, #16]
+ 149:modules/motor/DJImotor/dji_motor.c **** 
+ 487              		.loc 1 149 1 view .LVU166
+ 488 00e2 38BD     		pop	{r3, r4, r5, pc}
+ 489              	.LVL37:
+ 490              	.L30:
+ 146:modules/motor/DJImotor/dji_motor.c ****         measure->total_round++;
+ 491              		.loc 1 146 10 is_stmt 1 view .LVU167
+ 146:modules/motor/DJImotor/dji_motor.c ****         measure->total_round++;
+ 492              		.loc 1 146 13 is_stmt 0 view .LVU168
+ 493 00e4 12F5805F 		cmn	r2, #4096
+ 494 00e8 EEDA     		bge	.L31
+ 147:modules/motor/DJImotor/dji_motor.c ****     measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+ 495              		.loc 1 147 9 is_stmt 1 view .LVU169
+ 147:modules/motor/DJImotor/dji_motor.c ****     measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+ 496              		.loc 1 147 16 is_stmt 0 view .LVU170
+ 497 00ea 6369     		ldr	r3, [r4, #20]
+ 147:modules/motor/DJImotor/dji_motor.c ****     measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+ 498              		.loc 1 147 29 view .LVU171
+ 499 00ec 0133     		adds	r3, r3, #1
+ 500 00ee 6361     		str	r3, [r4, #20]
+ 501 00f0 EAE7     		b	.L31
+ 502              	.L34:
+ 503 00f2 00BF     		.align	2
+ 504              	.L33:
+ 505 00f4 ACFF333D 		.word	1026817964
+ 506 00f8 9899193E 		.word	1041865112
+ 507 00fc 3433A340 		.word	1084437300
+ 508 0100 D0CCCC3D 		.word	1036831952
+ 509 0104 6666663F 		.word	1063675494
+ 510              		.cfi_endproc
+ 511              	.LFE272:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 14
+
+
+ 513              		.section	.text.DJIMotorChangeFeed,"ax",%progbits
+ 514              		.align	1
+ 515              		.global	DJIMotorChangeFeed
+ 516              		.syntax unified
+ 517              		.thumb
+ 518              		.thumb_func
+ 520              	DJIMotorChangeFeed:
+ 521              	.LVL38:
+ 522              	.LFB275:
+ 157:modules/motor/DJImotor/dji_motor.c **** 
+ 158:modules/motor/DJImotor/dji_motor.c **** // 电机初始化,返回一个电机实例
+ 159:modules/motor/DJImotor/dji_motor.c **** DJIMotorInstance *DJIMotorInit(Motor_Init_Config_s *config)
+ 160:modules/motor/DJImotor/dji_motor.c **** {
+ 161:modules/motor/DJImotor/dji_motor.c ****     DJIMotorInstance *instance = (DJIMotorInstance *)malloc(sizeof(DJIMotorInstance));
+ 162:modules/motor/DJImotor/dji_motor.c ****     memset(instance, 0, sizeof(DJIMotorInstance));
+ 163:modules/motor/DJImotor/dji_motor.c **** 
+ 164:modules/motor/DJImotor/dji_motor.c ****     // motor basic setting 电机基本设置
+ 165:modules/motor/DJImotor/dji_motor.c ****     instance->motor_type = config->motor_type;                         // 6020 or 2006 or 3508
+ 166:modules/motor/DJImotor/dji_motor.c ****     instance->motor_settings = config->controller_setting_init_config; // 正反转,闭环类型等
+ 167:modules/motor/DJImotor/dji_motor.c **** 
+ 168:modules/motor/DJImotor/dji_motor.c ****     // motor controller init 电机控制器初始化
+ 169:modules/motor/DJImotor/dji_motor.c ****     PIDInit(&instance->motor_controller.current_PID, &config->controller_param_init_config.current_
+ 170:modules/motor/DJImotor/dji_motor.c ****     PIDInit(&instance->motor_controller.speed_PID, &config->controller_param_init_config.speed_PID)
+ 171:modules/motor/DJImotor/dji_motor.c ****     PIDInit(&instance->motor_controller.angle_PID, &config->controller_param_init_config.angle_PID)
+ 172:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.other_angle_feedback_ptr = config->controller_param_init_config.othe
+ 173:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.other_speed_feedback_ptr = config->controller_param_init_config.othe
+ 174:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.current_feedforward_ptr = config->controller_param_init_config.curre
+ 175:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.speed_feedforward_ptr = config->controller_param_init_config.speed_f
+ 176:modules/motor/DJImotor/dji_motor.c ****     // 后续增加电机前馈控制器(速度和电流)
+ 177:modules/motor/DJImotor/dji_motor.c **** 
+ 178:modules/motor/DJImotor/dji_motor.c ****     // 电机分组,因为至多4个电机可以共用一帧CAN控制报文
+ 179:modules/motor/DJImotor/dji_motor.c ****     MotorSenderGrouping(instance, &config->can_init_config);
+ 180:modules/motor/DJImotor/dji_motor.c **** 
+ 181:modules/motor/DJImotor/dji_motor.c ****     // 注册电机到CAN总线
+ 182:modules/motor/DJImotor/dji_motor.c ****     config->can_init_config.can_module_callback = DecodeDJIMotor; // set callback
+ 183:modules/motor/DJImotor/dji_motor.c ****     config->can_init_config.id = instance;                        // set id,eq to address(it is ide
+ 184:modules/motor/DJImotor/dji_motor.c ****     instance->motor_can_instance = CANRegister(&config->can_init_config);
+ 185:modules/motor/DJImotor/dji_motor.c **** 
+ 186:modules/motor/DJImotor/dji_motor.c ****     // 注册守护线程
+ 187:modules/motor/DJImotor/dji_motor.c ****     Daemon_Init_Config_s daemon_config = {
+ 188:modules/motor/DJImotor/dji_motor.c ****         .callback = DJIMotorLostCallback,
+ 189:modules/motor/DJImotor/dji_motor.c ****         .owner_id = instance,
+ 190:modules/motor/DJImotor/dji_motor.c ****         .reload_count = 2, // 20ms未收到数据则丢失
+ 191:modules/motor/DJImotor/dji_motor.c ****     };
+ 192:modules/motor/DJImotor/dji_motor.c ****     instance->daemon = DaemonRegister(&daemon_config);
+ 193:modules/motor/DJImotor/dji_motor.c **** 
+ 194:modules/motor/DJImotor/dji_motor.c ****     DJIMotorEnable(instance);
+ 195:modules/motor/DJImotor/dji_motor.c ****     dji_motor_instance[idx++] = instance;
+ 196:modules/motor/DJImotor/dji_motor.c ****     return instance;
+ 197:modules/motor/DJImotor/dji_motor.c **** }
+ 198:modules/motor/DJImotor/dji_motor.c **** 
+ 199:modules/motor/DJImotor/dji_motor.c **** /* 电流只能通过电机自带传感器监测,后续考虑加入力矩传感器应变片等 */
+ 200:modules/motor/DJImotor/dji_motor.c **** void DJIMotorChangeFeed(DJIMotorInstance *motor, Closeloop_Type_e loop, Feedback_Source_e type)
+ 201:modules/motor/DJImotor/dji_motor.c **** {
+ 523              		.loc 1 201 1 is_stmt 1 view -0
+ 524              		.cfi_startproc
+ 525              		@ args = 0, pretend = 0, frame = 0
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 15
+
+
+ 526              		@ frame_needed = 0, uses_anonymous_args = 0
+ 527              		@ link register save eliminated.
+ 202:modules/motor/DJImotor/dji_motor.c ****     if (loop == ANGLE_LOOP)
+ 528              		.loc 1 202 5 view .LVU173
+ 529              		.loc 1 202 8 is_stmt 0 view .LVU174
+ 530 0000 0429     		cmp	r1, #4
+ 531 0002 02D0     		beq	.L38
+ 203:modules/motor/DJImotor/dji_motor.c ****         motor->motor_settings.angle_feedback_source = type;
+ 204:modules/motor/DJImotor/dji_motor.c ****     else if (loop == SPEED_LOOP)
+ 532              		.loc 1 204 10 is_stmt 1 view .LVU175
+ 533              		.loc 1 204 13 is_stmt 0 view .LVU176
+ 534 0004 0229     		cmp	r1, #2
+ 535 0006 02D0     		beq	.L39
+ 536              	.L35:
+ 205:modules/motor/DJImotor/dji_motor.c ****         motor->motor_settings.speed_feedback_source = type;
+ 206:modules/motor/DJImotor/dji_motor.c ****     else
+ 207:modules/motor/DJImotor/dji_motor.c ****         LOGERROR("[dji_motor] loop type error, check memory access and func param"); // 检查是�
+ 208:modules/motor/DJImotor/dji_motor.c **** }
+ 537              		.loc 1 208 1 view .LVU177
+ 538 0008 7047     		bx	lr
+ 539              	.L38:
+ 203:modules/motor/DJImotor/dji_motor.c ****         motor->motor_settings.angle_feedback_source = type;
+ 540              		.loc 1 203 9 is_stmt 1 view .LVU178
+ 203:modules/motor/DJImotor/dji_motor.c ****         motor->motor_settings.angle_feedback_source = type;
+ 541              		.loc 1 203 53 is_stmt 0 view .LVU179
+ 542 000a 0277     		strb	r2, [r0, #28]
+ 543 000c 7047     		bx	lr
+ 544              	.L39:
+ 205:modules/motor/DJImotor/dji_motor.c ****         motor->motor_settings.speed_feedback_source = type;
+ 545              		.loc 1 205 9 is_stmt 1 view .LVU180
+ 205:modules/motor/DJImotor/dji_motor.c ****         motor->motor_settings.speed_feedback_source = type;
+ 546              		.loc 1 205 53 is_stmt 0 view .LVU181
+ 547 000e 4277     		strb	r2, [r0, #29]
+ 548              		.loc 1 208 1 view .LVU182
+ 549 0010 FAE7     		b	.L35
+ 550              		.cfi_endproc
+ 551              	.LFE275:
+ 553              		.section	.text.DJIMotorStop,"ax",%progbits
+ 554              		.align	1
+ 555              		.global	DJIMotorStop
+ 556              		.syntax unified
+ 557              		.thumb
+ 558              		.thumb_func
+ 560              	DJIMotorStop:
+ 561              	.LVL39:
+ 562              	.LFB276:
+ 209:modules/motor/DJImotor/dji_motor.c **** 
+ 210:modules/motor/DJImotor/dji_motor.c **** void DJIMotorStop(DJIMotorInstance *motor)
+ 211:modules/motor/DJImotor/dji_motor.c **** {
+ 563              		.loc 1 211 1 is_stmt 1 view -0
+ 564              		.cfi_startproc
+ 565              		@ args = 0, pretend = 0, frame = 0
+ 566              		@ frame_needed = 0, uses_anonymous_args = 0
+ 567              		@ link register save eliminated.
+ 212:modules/motor/DJImotor/dji_motor.c ****     motor->stop_flag = MOTOR_STOP;
+ 568              		.loc 1 212 5 view .LVU184
+ 569              		.loc 1 212 22 is_stmt 0 view .LVU185
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 16
+
+
+ 570 0000 0023     		movs	r3, #0
+ 571 0002 80F8A731 		strb	r3, [r0, #423]
+ 213:modules/motor/DJImotor/dji_motor.c **** }
+ 572              		.loc 1 213 1 view .LVU186
+ 573 0006 7047     		bx	lr
+ 574              		.cfi_endproc
+ 575              	.LFE276:
+ 577              		.section	.text.DJIMotorEnable,"ax",%progbits
+ 578              		.align	1
+ 579              		.global	DJIMotorEnable
+ 580              		.syntax unified
+ 581              		.thumb
+ 582              		.thumb_func
+ 584              	DJIMotorEnable:
+ 585              	.LVL40:
+ 586              	.LFB277:
+ 214:modules/motor/DJImotor/dji_motor.c **** 
+ 215:modules/motor/DJImotor/dji_motor.c **** void DJIMotorEnable(DJIMotorInstance *motor)
+ 216:modules/motor/DJImotor/dji_motor.c **** {
+ 587              		.loc 1 216 1 is_stmt 1 view -0
+ 588              		.cfi_startproc
+ 589              		@ args = 0, pretend = 0, frame = 0
+ 590              		@ frame_needed = 0, uses_anonymous_args = 0
+ 591              		@ link register save eliminated.
+ 217:modules/motor/DJImotor/dji_motor.c ****     motor->stop_flag = MOTOR_ENALBED;
+ 592              		.loc 1 217 5 view .LVU188
+ 593              		.loc 1 217 22 is_stmt 0 view .LVU189
+ 594 0000 0123     		movs	r3, #1
+ 595 0002 80F8A731 		strb	r3, [r0, #423]
+ 218:modules/motor/DJImotor/dji_motor.c **** }
+ 596              		.loc 1 218 1 view .LVU190
+ 597 0006 7047     		bx	lr
+ 598              		.cfi_endproc
+ 599              	.LFE277:
+ 601              		.section	.text.DJIMotorInit,"ax",%progbits
+ 602              		.align	1
+ 603              		.global	DJIMotorInit
+ 604              		.syntax unified
+ 605              		.thumb
+ 606              		.thumb_func
+ 608              	DJIMotorInit:
+ 609              	.LVL41:
+ 610              	.LFB274:
+ 160:modules/motor/DJImotor/dji_motor.c ****     DJIMotorInstance *instance = (DJIMotorInstance *)malloc(sizeof(DJIMotorInstance));
+ 611              		.loc 1 160 1 is_stmt 1 view -0
+ 612              		.cfi_startproc
+ 613              		@ args = 0, pretend = 0, frame = 16
+ 614              		@ frame_needed = 0, uses_anonymous_args = 0
+ 160:modules/motor/DJImotor/dji_motor.c ****     DJIMotorInstance *instance = (DJIMotorInstance *)malloc(sizeof(DJIMotorInstance));
+ 615              		.loc 1 160 1 is_stmt 0 view .LVU192
+ 616 0000 70B5     		push	{r4, r5, r6, lr}
+ 617              	.LCFI3:
+ 618              		.cfi_def_cfa_offset 16
+ 619              		.cfi_offset 4, -16
+ 620              		.cfi_offset 5, -12
+ 621              		.cfi_offset 6, -8
+ 622              		.cfi_offset 14, -4
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 17
+
+
+ 623 0002 84B0     		sub	sp, sp, #16
+ 624              	.LCFI4:
+ 625              		.cfi_def_cfa_offset 32
+ 626 0004 0546     		mov	r5, r0
+ 161:modules/motor/DJImotor/dji_motor.c ****     memset(instance, 0, sizeof(DJIMotorInstance));
+ 627              		.loc 1 161 5 is_stmt 1 view .LVU193
+ 161:modules/motor/DJImotor/dji_motor.c ****     memset(instance, 0, sizeof(DJIMotorInstance));
+ 628              		.loc 1 161 54 is_stmt 0 view .LVU194
+ 629 0006 4FF4DC70 		mov	r0, #440
+ 630              	.LVL42:
+ 161:modules/motor/DJImotor/dji_motor.c ****     memset(instance, 0, sizeof(DJIMotorInstance));
+ 631              		.loc 1 161 54 view .LVU195
+ 632 000a FFF7FEFF 		bl	malloc
+ 633              	.LVL43:
+ 634 000e 0446     		mov	r4, r0
+ 635              	.LVL44:
+ 162:modules/motor/DJImotor/dji_motor.c **** 
+ 636              		.loc 1 162 5 is_stmt 1 view .LVU196
+ 637 0010 4FF4DC72 		mov	r2, #440
+ 638 0014 0021     		movs	r1, #0
+ 639 0016 FFF7FEFF 		bl	memset
+ 640              	.LVL45:
+ 165:modules/motor/DJImotor/dji_motor.c ****     instance->motor_settings = config->controller_setting_init_config; // 正反转,闭环类型等
+ 641              		.loc 1 165 5 view .LVU197
+ 165:modules/motor/DJImotor/dji_motor.c ****     instance->motor_settings = config->controller_setting_init_config; // 正反转,闭环类型等
+ 642              		.loc 1 165 34 is_stmt 0 view .LVU198
+ 643 001a 95F89B30 		ldrb	r3, [r5, #155]	@ zero_extendqisi2
+ 165:modules/motor/DJImotor/dji_motor.c ****     instance->motor_settings = config->controller_setting_init_config; // 正反转,闭环类型等
+ 644              		.loc 1 165 26 view .LVU199
+ 645 001e 84F8A631 		strb	r3, [r4, #422]
+ 166:modules/motor/DJImotor/dji_motor.c **** 
+ 646              		.loc 1 166 5 is_stmt 1 view .LVU200
+ 166:modules/motor/DJImotor/dji_motor.c **** 
+ 647              		.loc 1 166 30 is_stmt 0 view .LVU201
+ 648 0022 05F19403 		add	r3, r5, #148
+ 649 0026 93E80300 		ldm	r3, {r0, r1}
+ 650 002a A061     		str	r0, [r4, #24]
+ 651 002c A183     		strh	r1, [r4, #28]	@ movhi
+ 652 002e 090C     		lsrs	r1, r1, #16
+ 653 0030 A177     		strb	r1, [r4, #30]
+ 169:modules/motor/DJImotor/dji_motor.c ****     PIDInit(&instance->motor_controller.speed_PID, &config->controller_param_init_config.speed_PID)
+ 654              		.loc 1 169 5 is_stmt 1 view .LVU202
+ 655 0032 05F11001 		add	r1, r5, #16
+ 656 0036 04F13000 		add	r0, r4, #48
+ 657 003a FFF7FEFF 		bl	PIDInit
+ 658              	.LVL46:
+ 170:modules/motor/DJImotor/dji_motor.c ****     PIDInit(&instance->motor_controller.angle_PID, &config->controller_param_init_config.angle_PID)
+ 659              		.loc 1 170 5 view .LVU203
+ 660 003e 05F13C01 		add	r1, r5, #60
+ 661 0042 04F1A800 		add	r0, r4, #168
+ 662 0046 FFF7FEFF 		bl	PIDInit
+ 663              	.LVL47:
+ 171:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.other_angle_feedback_ptr = config->controller_param_init_config.othe
+ 664              		.loc 1 171 5 view .LVU204
+ 665 004a 05F16801 		add	r1, r5, #104
+ 666 004e 04F59070 		add	r0, r4, #288
+ 667 0052 FFF7FEFF 		bl	PIDInit
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 18
+
+
+ 668              	.LVL48:
+ 172:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.other_speed_feedback_ptr = config->controller_param_init_config.othe
+ 669              		.loc 1 172 5 view .LVU205
+ 172:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.other_speed_feedback_ptr = config->controller_param_init_config.othe
+ 670              		.loc 1 172 95 is_stmt 0 view .LVU206
+ 671 0056 2B68     		ldr	r3, [r5]
+ 172:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.other_speed_feedback_ptr = config->controller_param_init_config.othe
+ 672              		.loc 1 172 57 view .LVU207
+ 673 0058 2362     		str	r3, [r4, #32]
+ 173:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.current_feedforward_ptr = config->controller_param_init_config.curre
+ 674              		.loc 1 173 5 is_stmt 1 view .LVU208
+ 173:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.current_feedforward_ptr = config->controller_param_init_config.curre
+ 675              		.loc 1 173 95 is_stmt 0 view .LVU209
+ 676 005a 6B68     		ldr	r3, [r5, #4]
+ 173:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.current_feedforward_ptr = config->controller_param_init_config.curre
+ 677              		.loc 1 173 57 view .LVU210
+ 678 005c 6362     		str	r3, [r4, #36]
+ 174:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.speed_feedforward_ptr = config->controller_param_init_config.speed_f
+ 679              		.loc 1 174 5 is_stmt 1 view .LVU211
+ 174:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.speed_feedforward_ptr = config->controller_param_init_config.speed_f
+ 680              		.loc 1 174 94 is_stmt 0 view .LVU212
+ 681 005e EB68     		ldr	r3, [r5, #12]
+ 174:modules/motor/DJImotor/dji_motor.c ****     instance->motor_controller.speed_feedforward_ptr = config->controller_param_init_config.speed_f
+ 682              		.loc 1 174 56 view .LVU213
+ 683 0060 E362     		str	r3, [r4, #44]
+ 175:modules/motor/DJImotor/dji_motor.c ****     // 后续增加电机前馈控制器(速度和电流)
+ 684              		.loc 1 175 5 is_stmt 1 view .LVU214
+ 175:modules/motor/DJImotor/dji_motor.c ****     // 后续增加电机前馈控制器(速度和电流)
+ 685              		.loc 1 175 92 is_stmt 0 view .LVU215
+ 686 0062 AB68     		ldr	r3, [r5, #8]
+ 175:modules/motor/DJImotor/dji_motor.c ****     // 后续增加电机前馈控制器(速度和电流)
+ 687              		.loc 1 175 54 view .LVU216
+ 688 0064 A362     		str	r3, [r4, #40]
+ 179:modules/motor/DJImotor/dji_motor.c **** 
+ 689              		.loc 1 179 5 is_stmt 1 view .LVU217
+ 690 0066 05F19C06 		add	r6, r5, #156
+ 691 006a 3146     		mov	r1, r6
+ 692 006c 2046     		mov	r0, r4
+ 693 006e FFF7FEFF 		bl	MotorSenderGrouping
+ 694              	.LVL49:
+ 182:modules/motor/DJImotor/dji_motor.c ****     config->can_init_config.id = instance;                        // set id,eq to address(it is ide
+ 695              		.loc 1 182 5 view .LVU218
+ 182:modules/motor/DJImotor/dji_motor.c ****     config->can_init_config.id = instance;                        // set id,eq to address(it is ide
+ 696              		.loc 1 182 49 is_stmt 0 view .LVU219
+ 697 0072 134B     		ldr	r3, .L44
+ 698 0074 C5F8A830 		str	r3, [r5, #168]
+ 183:modules/motor/DJImotor/dji_motor.c ****     instance->motor_can_instance = CANRegister(&config->can_init_config);
+ 699              		.loc 1 183 5 is_stmt 1 view .LVU220
+ 183:modules/motor/DJImotor/dji_motor.c ****     instance->motor_can_instance = CANRegister(&config->can_init_config);
+ 700              		.loc 1 183 32 is_stmt 0 view .LVU221
+ 701 0078 C5F8AC40 		str	r4, [r5, #172]
+ 184:modules/motor/DJImotor/dji_motor.c **** 
+ 702              		.loc 1 184 5 is_stmt 1 view .LVU222
+ 184:modules/motor/DJImotor/dji_motor.c **** 
+ 703              		.loc 1 184 36 is_stmt 0 view .LVU223
+ 704 007c 3046     		mov	r0, r6
+ 705 007e FFF7FEFF 		bl	CANRegister
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 19
+
+
+ 706              	.LVL50:
+ 184:modules/motor/DJImotor/dji_motor.c **** 
+ 707              		.loc 1 184 34 view .LVU224
+ 708 0082 C4F8A001 		str	r0, [r4, #416]
+ 187:modules/motor/DJImotor/dji_motor.c ****         .callback = DJIMotorLostCallback,
+ 709              		.loc 1 187 5 is_stmt 1 view .LVU225
+ 187:modules/motor/DJImotor/dji_motor.c ****         .callback = DJIMotorLostCallback,
+ 710              		.loc 1 187 26 is_stmt 0 view .LVU226
+ 711 0086 0023     		movs	r3, #0
+ 712 0088 0193     		str	r3, [sp, #4]
+ 713 008a 0293     		str	r3, [sp, #8]
+ 714 008c 0393     		str	r3, [sp, #12]
+ 715 008e 0223     		movs	r3, #2
+ 716 0090 ADF80430 		strh	r3, [sp, #4]	@ movhi
+ 717 0094 0B4B     		ldr	r3, .L44+4
+ 718 0096 0293     		str	r3, [sp, #8]
+ 719 0098 0394     		str	r4, [sp, #12]
+ 192:modules/motor/DJImotor/dji_motor.c **** 
+ 720              		.loc 1 192 5 is_stmt 1 view .LVU227
+ 192:modules/motor/DJImotor/dji_motor.c **** 
+ 721              		.loc 1 192 24 is_stmt 0 view .LVU228
+ 722 009a 01A8     		add	r0, sp, #4
+ 723 009c FFF7FEFF 		bl	DaemonRegister
+ 724              	.LVL51:
+ 192:modules/motor/DJImotor/dji_motor.c **** 
+ 725              		.loc 1 192 22 view .LVU229
+ 726 00a0 C4F8A801 		str	r0, [r4, #424]
+ 194:modules/motor/DJImotor/dji_motor.c ****     dji_motor_instance[idx++] = instance;
+ 727              		.loc 1 194 5 is_stmt 1 view .LVU230
+ 728 00a4 2046     		mov	r0, r4
+ 729 00a6 FFF7FEFF 		bl	DJIMotorEnable
+ 730              	.LVL52:
+ 195:modules/motor/DJImotor/dji_motor.c ****     return instance;
+ 731              		.loc 1 195 5 view .LVU231
+ 195:modules/motor/DJImotor/dji_motor.c ****     return instance;
+ 732              		.loc 1 195 27 is_stmt 0 view .LVU232
+ 733 00aa 074A     		ldr	r2, .L44+8
+ 734 00ac 1378     		ldrb	r3, [r2]	@ zero_extendqisi2
+ 735 00ae 591C     		adds	r1, r3, #1
+ 736 00b0 1170     		strb	r1, [r2]
+ 195:modules/motor/DJImotor/dji_motor.c ****     return instance;
+ 737              		.loc 1 195 31 view .LVU233
+ 738 00b2 064A     		ldr	r2, .L44+12
+ 739 00b4 42F82340 		str	r4, [r2, r3, lsl #2]
+ 196:modules/motor/DJImotor/dji_motor.c **** }
+ 740              		.loc 1 196 5 is_stmt 1 view .LVU234
+ 197:modules/motor/DJImotor/dji_motor.c **** 
+ 741              		.loc 1 197 1 is_stmt 0 view .LVU235
+ 742 00b8 2046     		mov	r0, r4
+ 743 00ba 04B0     		add	sp, sp, #16
+ 744              	.LCFI5:
+ 745              		.cfi_def_cfa_offset 16
+ 746              		@ sp needed
+ 747 00bc 70BD     		pop	{r4, r5, r6, pc}
+ 748              	.LVL53:
+ 749              	.L45:
+ 197:modules/motor/DJImotor/dji_motor.c **** 
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 20
+
+
+ 750              		.loc 1 197 1 view .LVU236
+ 751 00be 00BF     		.align	2
+ 752              	.L44:
+ 753 00c0 00000000 		.word	DecodeDJIMotor
+ 754 00c4 00000000 		.word	DJIMotorLostCallback
+ 755 00c8 00000000 		.word	.LANCHOR2
+ 756 00cc 00000000 		.word	.LANCHOR1
+ 757              		.cfi_endproc
+ 758              	.LFE274:
+ 760              		.section	.text.DJIMotorOuterLoop,"ax",%progbits
+ 761              		.align	1
+ 762              		.global	DJIMotorOuterLoop
+ 763              		.syntax unified
+ 764              		.thumb
+ 765              		.thumb_func
+ 767              	DJIMotorOuterLoop:
+ 768              	.LVL54:
+ 769              	.LFB278:
+ 219:modules/motor/DJImotor/dji_motor.c **** 
+ 220:modules/motor/DJImotor/dji_motor.c **** /* 修改电机的实际闭环对象 */
+ 221:modules/motor/DJImotor/dji_motor.c **** void DJIMotorOuterLoop(DJIMotorInstance *motor, Closeloop_Type_e outer_loop)
+ 222:modules/motor/DJImotor/dji_motor.c **** {
+ 770              		.loc 1 222 1 is_stmt 1 view -0
+ 771              		.cfi_startproc
+ 772              		@ args = 0, pretend = 0, frame = 0
+ 773              		@ frame_needed = 0, uses_anonymous_args = 0
+ 774              		@ link register save eliminated.
+ 223:modules/motor/DJImotor/dji_motor.c ****     motor->motor_settings.outer_loop_type = outer_loop;
+ 775              		.loc 1 223 5 view .LVU238
+ 776              		.loc 1 223 43 is_stmt 0 view .LVU239
+ 777 0000 0176     		strb	r1, [r0, #24]
+ 224:modules/motor/DJImotor/dji_motor.c **** }
+ 778              		.loc 1 224 1 view .LVU240
+ 779 0002 7047     		bx	lr
+ 780              		.cfi_endproc
+ 781              	.LFE278:
+ 783              		.section	.text.DJIMotorSetRef,"ax",%progbits
+ 784              		.align	1
+ 785              		.global	DJIMotorSetRef
+ 786              		.syntax unified
+ 787              		.thumb
+ 788              		.thumb_func
+ 790              	DJIMotorSetRef:
+ 791              	.LVL55:
+ 792              	.LFB279:
+ 225:modules/motor/DJImotor/dji_motor.c **** 
+ 226:modules/motor/DJImotor/dji_motor.c **** // 设置参考值
+ 227:modules/motor/DJImotor/dji_motor.c **** void DJIMotorSetRef(DJIMotorInstance *motor, float ref)
+ 228:modules/motor/DJImotor/dji_motor.c **** {
+ 793              		.loc 1 228 1 is_stmt 1 view -0
+ 794              		.cfi_startproc
+ 795              		@ args = 0, pretend = 0, frame = 0
+ 796              		@ frame_needed = 0, uses_anonymous_args = 0
+ 797              		@ link register save eliminated.
+ 229:modules/motor/DJImotor/dji_motor.c ****     motor->motor_controller.pid_ref = ref;
+ 798              		.loc 1 229 5 view .LVU242
+ 799              		.loc 1 229 37 is_stmt 0 view .LVU243
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 21
+
+
+ 800 0000 80ED660A 		vstr.32	s0, [r0, #408]
+ 230:modules/motor/DJImotor/dji_motor.c **** }
+ 801              		.loc 1 230 1 view .LVU244
+ 802 0004 7047     		bx	lr
+ 803              		.cfi_endproc
+ 804              	.LFE279:
+ 806              		.section	.text.DJIMotorControl,"ax",%progbits
+ 807              		.align	1
+ 808              		.global	DJIMotorControl
+ 809              		.syntax unified
+ 810              		.thumb
+ 811              		.thumb_func
+ 813              	DJIMotorControl:
+ 814              	.LFB280:
+ 231:modules/motor/DJImotor/dji_motor.c **** 
+ 232:modules/motor/DJImotor/dji_motor.c **** // 为所有电机实例计算三环PID,发送控制报文
+ 233:modules/motor/DJImotor/dji_motor.c **** void DJIMotorControl()
+ 234:modules/motor/DJImotor/dji_motor.c **** {
+ 815              		.loc 1 234 1 is_stmt 1 view -0
+ 816              		.cfi_startproc
+ 817              		@ args = 0, pretend = 0, frame = 0
+ 818              		@ frame_needed = 0, uses_anonymous_args = 0
+ 819 0000 70B5     		push	{r4, r5, r6, lr}
+ 820              	.LCFI6:
+ 821              		.cfi_def_cfa_offset 16
+ 822              		.cfi_offset 4, -16
+ 823              		.cfi_offset 5, -12
+ 824              		.cfi_offset 6, -8
+ 825              		.cfi_offset 14, -4
+ 235:modules/motor/DJImotor/dji_motor.c ****     // 直接保存一次指针引用从而减小访存的开销,同样可以提高可读性
+ 236:modules/motor/DJImotor/dji_motor.c ****     uint8_t group, num; // 电机组号和组内编号
+ 826              		.loc 1 236 5 view .LVU246
+ 237:modules/motor/DJImotor/dji_motor.c ****     int16_t set;        // 电机控制CAN发送设定值
+ 827              		.loc 1 237 5 view .LVU247
+ 238:modules/motor/DJImotor/dji_motor.c ****     DJIMotorInstance *motor;
+ 828              		.loc 1 238 5 view .LVU248
+ 239:modules/motor/DJImotor/dji_motor.c ****     Motor_Control_Setting_s *motor_setting; // 电机控制参数
+ 829              		.loc 1 239 5 view .LVU249
+ 240:modules/motor/DJImotor/dji_motor.c ****     Motor_Controller_s *motor_controller;   // 电机控制器
+ 830              		.loc 1 240 5 view .LVU250
+ 241:modules/motor/DJImotor/dji_motor.c ****     DJI_Motor_Measure_s *measure;           // 电机测量值
+ 831              		.loc 1 241 5 view .LVU251
+ 242:modules/motor/DJImotor/dji_motor.c ****     float pid_measure, pid_ref;             // 电机PID测量值和设定值
+ 832              		.loc 1 242 5 view .LVU252
+ 243:modules/motor/DJImotor/dji_motor.c **** 
+ 244:modules/motor/DJImotor/dji_motor.c ****     // 遍历所有电机实例,进行串级PID的计算并设置发送报文的值
+ 245:modules/motor/DJImotor/dji_motor.c ****     for (size_t i = 0; i < idx; ++i)
+ 833              		.loc 1 245 5 view .LVU253
+ 834              	.LBB6:
+ 835              		.loc 1 245 10 view .LVU254
+ 836              	.LVL56:
+ 837              		.loc 1 245 17 is_stmt 0 view .LVU255
+ 838 0002 0025     		movs	r5, #0
+ 839              		.loc 1 245 5 view .LVU256
+ 840 0004 4BE0     		b	.L49
+ 841              	.LVL57:
+ 842              	.L73:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 22
+
+
+ 246:modules/motor/DJImotor/dji_motor.c ****     { // 减小访存开销,先保存指针引用
+ 247:modules/motor/DJImotor/dji_motor.c ****         motor = dji_motor_instance[i];
+ 248:modules/motor/DJImotor/dji_motor.c ****         motor_setting = &motor->motor_settings;
+ 249:modules/motor/DJImotor/dji_motor.c ****         motor_controller = &motor->motor_controller;
+ 250:modules/motor/DJImotor/dji_motor.c ****         measure = &motor->measure;
+ 251:modules/motor/DJImotor/dji_motor.c ****         pid_ref = motor_controller->pid_ref; // 保存设定值,防止motor_controller->pid_ref在�
+ 252:modules/motor/DJImotor/dji_motor.c ****         if (motor_setting->motor_reverse_flag == MOTOR_DIRECTION_REVERSE)
+ 253:modules/motor/DJImotor/dji_motor.c ****             pid_ref *= -1; // 设置反转
+ 843              		.loc 1 253 13 is_stmt 1 view .LVU257
+ 844              		.loc 1 253 21 is_stmt 0 view .LVU258
+ 845 0006 F1EE600A 		vneg.f32	s1, s1
+ 846              	.LVL58:
+ 847              		.loc 1 253 21 view .LVU259
+ 848 000a 54E0     		b	.L50
+ 849              	.L74:
+ 254:modules/motor/DJImotor/dji_motor.c **** 
+ 255:modules/motor/DJImotor/dji_motor.c ****         // pid_ref会顺次通过被启用的闭环充当数据的载体
+ 256:modules/motor/DJImotor/dji_motor.c ****         // 计算位置环,只有启用位置环且外层闭环为位置时会计算速度环输出
+ 257:modules/motor/DJImotor/dji_motor.c ****         if ((motor_setting->close_loop_type & ANGLE_LOOP) && motor_setting->outer_loop_type == ANGL
+ 258:modules/motor/DJImotor/dji_motor.c ****         {
+ 259:modules/motor/DJImotor/dji_motor.c ****             if (motor_setting->angle_feedback_source == OTHER_FEED)
+ 850              		.loc 1 259 13 is_stmt 1 view .LVU260
+ 851              		.loc 1 259 30 is_stmt 0 view .LVU261
+ 852 000c 237F     		ldrb	r3, [r4, #28]	@ zero_extendqisi2
+ 853              		.loc 1 259 16 view .LVU262
+ 854 000e 012B     		cmp	r3, #1
+ 855 0010 08D0     		beq	.L67
+ 260:modules/motor/DJImotor/dji_motor.c ****                 pid_measure = *motor_controller->other_angle_feedback_ptr;
+ 261:modules/motor/DJImotor/dji_motor.c ****             else
+ 262:modules/motor/DJImotor/dji_motor.c ****                 pid_measure = measure->total_angle; // MOTOR_FEED,对total angle闭环,防止在边
+ 856              		.loc 1 262 17 is_stmt 1 view .LVU263
+ 857              		.loc 1 262 29 is_stmt 0 view .LVU264
+ 858 0012 94ED040A 		vldr.32	s0, [r4, #16]
+ 859              	.LVL59:
+ 860              	.L53:
+ 263:modules/motor/DJImotor/dji_motor.c ****             // 更新pid_ref进入下一个环
+ 264:modules/motor/DJImotor/dji_motor.c ****             pid_ref = PIDCalculate(&motor_controller->angle_PID, pid_measure, pid_ref);
+ 861              		.loc 1 264 13 is_stmt 1 view .LVU265
+ 862              		.loc 1 264 23 is_stmt 0 view .LVU266
+ 863 0016 04F59070 		add	r0, r4, #288
+ 864 001a FFF7FEFF 		bl	PIDCalculate
+ 865              	.LVL60:
+ 866              		.loc 1 264 23 view .LVU267
+ 867 001e F0EE400A 		vmov.f32	s1, s0
+ 868              	.LVL61:
+ 869              		.loc 1 264 23 view .LVU268
+ 870 0022 4FE0     		b	.L51
+ 871              	.LVL62:
+ 872              	.L67:
+ 260:modules/motor/DJImotor/dji_motor.c ****                 pid_measure = *motor_controller->other_angle_feedback_ptr;
+ 873              		.loc 1 260 17 is_stmt 1 view .LVU269
+ 260:modules/motor/DJImotor/dji_motor.c ****                 pid_measure = *motor_controller->other_angle_feedback_ptr;
+ 874              		.loc 1 260 48 is_stmt 0 view .LVU270
+ 875 0024 236A     		ldr	r3, [r4, #32]
+ 260:modules/motor/DJImotor/dji_motor.c ****                 pid_measure = *motor_controller->other_angle_feedback_ptr;
+ 876              		.loc 1 260 29 view .LVU271
+ 877 0026 93ED000A 		vldr.32	s0, [r3]
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 23
+
+
+ 878              	.LVL63:
+ 260:modules/motor/DJImotor/dji_motor.c ****                 pid_measure = *motor_controller->other_angle_feedback_ptr;
+ 879              		.loc 1 260 29 view .LVU272
+ 880 002a F4E7     		b	.L53
+ 881              	.LVL64:
+ 882              	.L55:
+ 265:modules/motor/DJImotor/dji_motor.c ****         }
+ 266:modules/motor/DJImotor/dji_motor.c **** 
+ 267:modules/motor/DJImotor/dji_motor.c ****         // 计算速度环,(外层闭环为速度或位置)且(启用速度环)时会计算速度�
+ 268:modules/motor/DJImotor/dji_motor.c ****         if ((motor_setting->close_loop_type & SPEED_LOOP) && (motor_setting->outer_loop_type & (ANG
+ 269:modules/motor/DJImotor/dji_motor.c ****         {
+ 270:modules/motor/DJImotor/dji_motor.c ****             if (motor_setting->feedforward_flag & SPEED_FEEDFORWARD)
+ 271:modules/motor/DJImotor/dji_motor.c ****                 pid_ref += *motor_controller->speed_feedforward_ptr;
+ 272:modules/motor/DJImotor/dji_motor.c **** 
+ 273:modules/motor/DJImotor/dji_motor.c ****             if (motor_setting->speed_feedback_source == OTHER_FEED)
+ 883              		.loc 1 273 13 is_stmt 1 view .LVU273
+ 884              		.loc 1 273 30 is_stmt 0 view .LVU274
+ 885 002c 637F     		ldrb	r3, [r4, #29]	@ zero_extendqisi2
+ 886              		.loc 1 273 16 view .LVU275
+ 887 002e 012B     		cmp	r3, #1
+ 888 0030 5AD0     		beq	.L68
+ 274:modules/motor/DJImotor/dji_motor.c ****                 pid_measure = *motor_controller->other_speed_feedback_ptr;
+ 275:modules/motor/DJImotor/dji_motor.c ****             else // MOTOR_FEED
+ 276:modules/motor/DJImotor/dji_motor.c ****                 pid_measure = measure->speed_aps;
+ 889              		.loc 1 276 17 is_stmt 1 view .LVU276
+ 890              		.loc 1 276 29 is_stmt 0 view .LVU277
+ 891 0032 94ED020A 		vldr.32	s0, [r4, #8]
+ 892              	.LVL65:
+ 893              	.L57:
+ 277:modules/motor/DJImotor/dji_motor.c ****             // 更新pid_ref进入下一个环
+ 278:modules/motor/DJImotor/dji_motor.c ****             pid_ref = PIDCalculate(&motor_controller->speed_PID, pid_measure, pid_ref);
+ 894              		.loc 1 278 13 is_stmt 1 view .LVU278
+ 895              		.loc 1 278 23 is_stmt 0 view .LVU279
+ 896 0036 04F1A800 		add	r0, r4, #168
+ 897 003a FFF7FEFF 		bl	PIDCalculate
+ 898              	.LVL66:
+ 899              		.loc 1 278 23 view .LVU280
+ 900 003e F0EE400A 		vmov.f32	s1, s0
+ 901              	.LVL67:
+ 902              	.L54:
+ 279:modules/motor/DJImotor/dji_motor.c ****         }
+ 280:modules/motor/DJImotor/dji_motor.c **** 
+ 281:modules/motor/DJImotor/dji_motor.c ****         // 计算电流环,目前只要启用了电流环就计算,不管外层闭环是什么,并�
+ 282:modules/motor/DJImotor/dji_motor.c ****         if (motor_setting->feedforward_flag & CURRENT_FEEDFORWARD)
+ 903              		.loc 1 282 9 is_stmt 1 view .LVU281
+ 904              		.loc 1 282 26 is_stmt 0 view .LVU282
+ 905 0042 A37F     		ldrb	r3, [r4, #30]	@ zero_extendqisi2
+ 906              		.loc 1 282 12 view .LVU283
+ 907 0044 13F0010F 		tst	r3, #1
+ 908 0048 04D0     		beq	.L58
+ 283:modules/motor/DJImotor/dji_motor.c ****             pid_ref += *motor_controller->current_feedforward_ptr;
+ 909              		.loc 1 283 13 is_stmt 1 view .LVU284
+ 910              		.loc 1 283 41 is_stmt 0 view .LVU285
+ 911 004a E36A     		ldr	r3, [r4, #44]
+ 912              		.loc 1 283 24 view .LVU286
+ 913 004c D3ED007A 		vldr.32	s15, [r3]
+ 914              		.loc 1 283 21 view .LVU287
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 24
+
+
+ 915 0050 70EEA70A 		vadd.f32	s1, s1, s15
+ 916              	.LVL68:
+ 917              	.L58:
+ 284:modules/motor/DJImotor/dji_motor.c ****         if (motor_setting->close_loop_type & CURRENT_LOOP)
+ 918              		.loc 1 284 9 is_stmt 1 view .LVU288
+ 919              		.loc 1 284 26 is_stmt 0 view .LVU289
+ 920 0054 637E     		ldrb	r3, [r4, #25]	@ zero_extendqisi2
+ 921              		.loc 1 284 12 view .LVU290
+ 922 0056 13F0010F 		tst	r3, #1
+ 923 005a 49D1     		bne	.L69
+ 924              	.L59:
+ 285:modules/motor/DJImotor/dji_motor.c ****         {
+ 286:modules/motor/DJImotor/dji_motor.c ****             pid_ref = PIDCalculate(&motor_controller->current_PID, measure->real_current, pid_ref);
+ 287:modules/motor/DJImotor/dji_motor.c ****         }
+ 288:modules/motor/DJImotor/dji_motor.c **** 
+ 289:modules/motor/DJImotor/dji_motor.c ****         if (motor_setting->feedback_reverse_flag == FEEDBACK_DIRECTION_REVERSE)
+ 925              		.loc 1 289 9 is_stmt 1 view .LVU291
+ 926              		.loc 1 289 26 is_stmt 0 view .LVU292
+ 927 005c E37E     		ldrb	r3, [r4, #27]	@ zero_extendqisi2
+ 928              		.loc 1 289 12 view .LVU293
+ 929 005e 012B     		cmp	r3, #1
+ 930 0060 53D0     		beq	.L70
+ 931              	.L60:
+ 290:modules/motor/DJImotor/dji_motor.c ****             pid_ref *= -1;
+ 291:modules/motor/DJImotor/dji_motor.c **** 
+ 292:modules/motor/DJImotor/dji_motor.c ****         // 获取最终输出
+ 293:modules/motor/DJImotor/dji_motor.c ****         set = (int16_t)pid_ref;
+ 932              		.loc 1 293 9 is_stmt 1 view .LVU294
+ 933              		.loc 1 293 13 is_stmt 0 view .LVU295
+ 934 0062 FDEEE07A 		vcvt.s32.f32	s15, s1
+ 935 0066 17EE903A 		vmov	r3, s15	@ int
+ 936              	.LVL69:
+ 294:modules/motor/DJImotor/dji_motor.c **** 
+ 295:modules/motor/DJImotor/dji_motor.c ****         // 分组填入发送数据
+ 296:modules/motor/DJImotor/dji_motor.c ****         group = motor->sender_group;
+ 937              		.loc 1 296 9 is_stmt 1 view .LVU296
+ 938              		.loc 1 296 15 is_stmt 0 view .LVU297
+ 939 006a 94F8A411 		ldrb	r1, [r4, #420]	@ zero_extendqisi2
+ 940              	.LVL70:
+ 297:modules/motor/DJImotor/dji_motor.c ****         num = motor->message_num;
+ 941              		.loc 1 297 9 is_stmt 1 view .LVU298
+ 942              		.loc 1 297 13 is_stmt 0 view .LVU299
+ 943 006e 94F8A5C1 		ldrb	ip, [r4, #421]	@ zero_extendqisi2
+ 944              	.LVL71:
+ 298:modules/motor/DJImotor/dji_motor.c ****         sender_assignment[group].tx_buff[2 * num] = (uint8_t)(set >> 8);         // 低八位
+ 945              		.loc 1 298 9 is_stmt 1 view .LVU300
+ 946              		.loc 1 298 44 is_stmt 0 view .LVU301
+ 947 0072 4FEA4C00 		lsl	r0, ip, #1
+ 948              		.loc 1 298 53 view .LVU302
+ 949 0076 C3F30726 		ubfx	r6, r3, #8, #8
+ 950              		.loc 1 298 51 view .LVU303
+ 951 007a 01EB811E 		add	lr, r1, r1, lsl #6
+ 952 007e 354A     		ldr	r2, .L76
+ 953 0080 7244     		add	r2, r2, lr
+ 954 0082 02EB4C0E 		add	lr, r2, ip, lsl #1
+ 955 0086 8EF82460 		strb	r6, [lr, #36]
+ 299:modules/motor/DJImotor/dji_motor.c ****         sender_assignment[group].tx_buff[2 * num + 1] = (uint8_t)(set & 0x00ff); // 高八位
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 25
+
+
+ 956              		.loc 1 299 9 is_stmt 1 view .LVU304
+ 957              		.loc 1 299 50 is_stmt 0 view .LVU305
+ 958 008a 00F1010E 		add	lr, r0, #1
+ 959              		.loc 1 299 55 view .LVU306
+ 960 008e 7244     		add	r2, r2, lr
+ 961 0090 82F82430 		strb	r3, [r2, #36]
+ 300:modules/motor/DJImotor/dji_motor.c **** 
+ 301:modules/motor/DJImotor/dji_motor.c ****         // 若该电机处于停止状态,直接将buff置零
+ 302:modules/motor/DJImotor/dji_motor.c ****         if (motor->stop_flag == MOTOR_STOP)
+ 962              		.loc 1 302 9 is_stmt 1 view .LVU307
+ 963              		.loc 1 302 18 is_stmt 0 view .LVU308
+ 964 0094 94F8A731 		ldrb	r3, [r4, #423]	@ zero_extendqisi2
+ 965              	.LVL72:
+ 966              		.loc 1 302 12 view .LVU309
+ 967 0098 002B     		cmp	r3, #0
+ 968 009a 39D0     		beq	.L71
+ 969              	.LVL73:
+ 970              	.L61:
+ 245:modules/motor/DJImotor/dji_motor.c ****     { // 减小访存开销,先保存指针引用
+ 971              		.loc 1 245 33 is_stmt 1 discriminator 2 view .LVU310
+ 972 009c 0135     		adds	r5, r5, #1
+ 973              	.LVL74:
+ 974              	.L49:
+ 245:modules/motor/DJImotor/dji_motor.c ****     { // 减小访存开销,先保存指针引用
+ 975              		.loc 1 245 24 discriminator 1 view .LVU311
+ 245:modules/motor/DJImotor/dji_motor.c ****     { // 减小访存开销,先保存指针引用
+ 976              		.loc 1 245 26 is_stmt 0 discriminator 1 view .LVU312
+ 977 009e 2E4B     		ldr	r3, .L76+4
+ 978 00a0 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 245:modules/motor/DJImotor/dji_motor.c ****     { // 减小访存开销,先保存指针引用
+ 979              		.loc 1 245 5 discriminator 1 view .LVU313
+ 980 00a2 AB42     		cmp	r3, r5
+ 981 00a4 42D9     		bls	.L72
+ 247:modules/motor/DJImotor/dji_motor.c ****         motor_setting = &motor->motor_settings;
+ 982              		.loc 1 247 9 is_stmt 1 view .LVU314
+ 247:modules/motor/DJImotor/dji_motor.c ****         motor_setting = &motor->motor_settings;
+ 983              		.loc 1 247 15 is_stmt 0 view .LVU315
+ 984 00a6 2D4B     		ldr	r3, .L76+8
+ 985 00a8 53F82540 		ldr	r4, [r3, r5, lsl #2]
+ 986              	.LVL75:
+ 248:modules/motor/DJImotor/dji_motor.c ****         motor_controller = &motor->motor_controller;
+ 987              		.loc 1 248 9 is_stmt 1 view .LVU316
+ 249:modules/motor/DJImotor/dji_motor.c ****         measure = &motor->measure;
+ 988              		.loc 1 249 9 view .LVU317
+ 250:modules/motor/DJImotor/dji_motor.c ****         pid_ref = motor_controller->pid_ref; // 保存设定值,防止motor_controller->pid_ref在�
+ 989              		.loc 1 250 9 view .LVU318
+ 251:modules/motor/DJImotor/dji_motor.c ****         if (motor_setting->motor_reverse_flag == MOTOR_DIRECTION_REVERSE)
+ 990              		.loc 1 251 9 view .LVU319
+ 251:modules/motor/DJImotor/dji_motor.c ****         if (motor_setting->motor_reverse_flag == MOTOR_DIRECTION_REVERSE)
+ 991              		.loc 1 251 17 is_stmt 0 view .LVU320
+ 992 00ac D4ED660A 		vldr.32	s1, [r4, #408]
+ 993              	.LVL76:
+ 252:modules/motor/DJImotor/dji_motor.c ****             pid_ref *= -1; // 设置反转
+ 994              		.loc 1 252 9 is_stmt 1 view .LVU321
+ 252:modules/motor/DJImotor/dji_motor.c ****             pid_ref *= -1; // 设置反转
+ 995              		.loc 1 252 26 is_stmt 0 view .LVU322
+ 996 00b0 A37E     		ldrb	r3, [r4, #26]	@ zero_extendqisi2
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 26
+
+
+ 252:modules/motor/DJImotor/dji_motor.c ****             pid_ref *= -1; // 设置反转
+ 997              		.loc 1 252 12 view .LVU323
+ 998 00b2 012B     		cmp	r3, #1
+ 999 00b4 A7D0     		beq	.L73
+ 1000              	.L50:
+ 257:modules/motor/DJImotor/dji_motor.c ****         {
+ 1001              		.loc 1 257 9 is_stmt 1 view .LVU324
+ 257:modules/motor/DJImotor/dji_motor.c ****         {
+ 1002              		.loc 1 257 27 is_stmt 0 view .LVU325
+ 1003 00b6 637E     		ldrb	r3, [r4, #25]	@ zero_extendqisi2
+ 257:modules/motor/DJImotor/dji_motor.c ****         {
+ 1004              		.loc 1 257 12 view .LVU326
+ 1005 00b8 13F0040F 		tst	r3, #4
+ 1006 00bc 02D0     		beq	.L51
+ 257:modules/motor/DJImotor/dji_motor.c ****         {
+ 1007              		.loc 1 257 75 discriminator 1 view .LVU327
+ 1008 00be 237E     		ldrb	r3, [r4, #24]	@ zero_extendqisi2
+ 257:modules/motor/DJImotor/dji_motor.c ****         {
+ 1009              		.loc 1 257 59 discriminator 1 view .LVU328
+ 1010 00c0 042B     		cmp	r3, #4
+ 1011 00c2 A3D0     		beq	.L74
+ 1012              	.L51:
+ 268:modules/motor/DJImotor/dji_motor.c ****         {
+ 1013              		.loc 1 268 9 is_stmt 1 view .LVU329
+ 268:modules/motor/DJImotor/dji_motor.c ****         {
+ 1014              		.loc 1 268 27 is_stmt 0 view .LVU330
+ 1015 00c4 637E     		ldrb	r3, [r4, #25]	@ zero_extendqisi2
+ 268:modules/motor/DJImotor/dji_motor.c ****         {
+ 1016              		.loc 1 268 12 view .LVU331
+ 1017 00c6 13F0020F 		tst	r3, #2
+ 1018 00ca BAD0     		beq	.L54
+ 268:modules/motor/DJImotor/dji_motor.c ****         {
+ 1019              		.loc 1 268 76 discriminator 1 view .LVU332
+ 1020 00cc 237E     		ldrb	r3, [r4, #24]	@ zero_extendqisi2
+ 268:modules/motor/DJImotor/dji_motor.c ****         {
+ 1021              		.loc 1 268 59 discriminator 1 view .LVU333
+ 1022 00ce 13F0060F 		tst	r3, #6
+ 1023 00d2 B6D0     		beq	.L54
+ 270:modules/motor/DJImotor/dji_motor.c ****                 pid_ref += *motor_controller->speed_feedforward_ptr;
+ 1024              		.loc 1 270 13 is_stmt 1 view .LVU334
+ 270:modules/motor/DJImotor/dji_motor.c ****                 pid_ref += *motor_controller->speed_feedforward_ptr;
+ 1025              		.loc 1 270 30 is_stmt 0 view .LVU335
+ 1026 00d4 A37F     		ldrb	r3, [r4, #30]	@ zero_extendqisi2
+ 270:modules/motor/DJImotor/dji_motor.c ****                 pid_ref += *motor_controller->speed_feedforward_ptr;
+ 1027              		.loc 1 270 16 view .LVU336
+ 1028 00d6 13F0020F 		tst	r3, #2
+ 1029 00da A7D0     		beq	.L55
+ 271:modules/motor/DJImotor/dji_motor.c **** 
+ 1030              		.loc 1 271 17 is_stmt 1 view .LVU337
+ 271:modules/motor/DJImotor/dji_motor.c **** 
+ 1031              		.loc 1 271 45 is_stmt 0 view .LVU338
+ 1032 00dc A36A     		ldr	r3, [r4, #40]
+ 271:modules/motor/DJImotor/dji_motor.c **** 
+ 1033              		.loc 1 271 28 view .LVU339
+ 1034 00de D3ED007A 		vldr.32	s15, [r3]
+ 271:modules/motor/DJImotor/dji_motor.c **** 
+ 1035              		.loc 1 271 25 view .LVU340
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 27
+
+
+ 1036 00e2 70EEA70A 		vadd.f32	s1, s1, s15
+ 1037              	.LVL77:
+ 271:modules/motor/DJImotor/dji_motor.c **** 
+ 1038              		.loc 1 271 25 view .LVU341
+ 1039 00e6 A1E7     		b	.L55
+ 1040              	.L68:
+ 274:modules/motor/DJImotor/dji_motor.c ****             else // MOTOR_FEED
+ 1041              		.loc 1 274 17 is_stmt 1 view .LVU342
+ 274:modules/motor/DJImotor/dji_motor.c ****             else // MOTOR_FEED
+ 1042              		.loc 1 274 48 is_stmt 0 view .LVU343
+ 1043 00e8 636A     		ldr	r3, [r4, #36]
+ 274:modules/motor/DJImotor/dji_motor.c ****             else // MOTOR_FEED
+ 1044              		.loc 1 274 29 view .LVU344
+ 1045 00ea 93ED000A 		vldr.32	s0, [r3]
+ 1046              	.LVL78:
+ 274:modules/motor/DJImotor/dji_motor.c ****             else // MOTOR_FEED
+ 1047              		.loc 1 274 29 view .LVU345
+ 1048 00ee A2E7     		b	.L57
+ 1049              	.LVL79:
+ 1050              	.L69:
+ 286:modules/motor/DJImotor/dji_motor.c ****         }
+ 1051              		.loc 1 286 13 is_stmt 1 view .LVU346
+ 286:modules/motor/DJImotor/dji_motor.c ****         }
+ 1052              		.loc 1 286 75 is_stmt 0 view .LVU347
+ 1053 00f0 B4F90C30 		ldrsh	r3, [r4, #12]
+ 1054 00f4 00EE103A 		vmov	s0, r3	@ int
+ 286:modules/motor/DJImotor/dji_motor.c ****         }
+ 1055              		.loc 1 286 23 view .LVU348
+ 1056 00f8 B8EEC00A 		vcvt.f32.s32	s0, s0
+ 1057 00fc 04F13000 		add	r0, r4, #48
+ 1058 0100 FFF7FEFF 		bl	PIDCalculate
+ 1059              	.LVL80:
+ 286:modules/motor/DJImotor/dji_motor.c ****         }
+ 1060              		.loc 1 286 23 view .LVU349
+ 1061 0104 F0EE400A 		vmov.f32	s1, s0
+ 1062              	.LVL81:
+ 286:modules/motor/DJImotor/dji_motor.c ****         }
+ 1063              		.loc 1 286 23 view .LVU350
+ 1064 0108 A8E7     		b	.L59
+ 1065              	.LVL82:
+ 1066              	.L70:
+ 290:modules/motor/DJImotor/dji_motor.c **** 
+ 1067              		.loc 1 290 13 is_stmt 1 view .LVU351
+ 290:modules/motor/DJImotor/dji_motor.c **** 
+ 1068              		.loc 1 290 21 is_stmt 0 view .LVU352
+ 1069 010a F1EE600A 		vneg.f32	s1, s1
+ 1070              	.LVL83:
+ 290:modules/motor/DJImotor/dji_motor.c **** 
+ 1071              		.loc 1 290 21 view .LVU353
+ 1072 010e A8E7     		b	.L60
+ 1073              	.LVL84:
+ 1074              	.L71:
+ 303:modules/motor/DJImotor/dji_motor.c ****             memset(sender_assignment[group].tx_buff + 2 * num, 0, 16u);
+ 1075              		.loc 1 303 13 is_stmt 1 view .LVU354
+ 1076              		.loc 1 303 20 is_stmt 0 view .LVU355
+ 1077 0110 01EB8111 		add	r1, r1, r1, lsl #6
+ 1078              	.LVL85:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 28
+
+
+ 1079              		.loc 1 303 20 view .LVU356
+ 1080 0114 2031     		adds	r1, r1, #32
+ 1081 0116 0F4B     		ldr	r3, .L76
+ 1082 0118 1944     		add	r1, r1, r3
+ 1083 011a 0431     		adds	r1, r1, #4
+ 1084              		.loc 1 303 13 view .LVU357
+ 1085 011c 0844     		add	r0, r0, r1
+ 1086 011e 0023     		movs	r3, #0
+ 1087 0120 41F81C30 		str	r3, [r1, ip, lsl #1]	@ unaligned
+ 1088              	.LVL86:
+ 1089              		.loc 1 303 13 view .LVU358
+ 1090 0124 4360     		str	r3, [r0, #4]	@ unaligned
+ 1091 0126 8360     		str	r3, [r0, #8]	@ unaligned
+ 1092 0128 C360     		str	r3, [r0, #12]	@ unaligned
+ 1093 012a B7E7     		b	.L61
+ 1094              	.LVL87:
+ 1095              	.L72:
+ 1096              		.loc 1 303 13 view .LVU359
+ 1097              	.LBE6:
+ 1098              	.LBB7:
+ 304:modules/motor/DJImotor/dji_motor.c ****     }
+ 305:modules/motor/DJImotor/dji_motor.c **** 
+ 306:modules/motor/DJImotor/dji_motor.c ****     // 遍历flag,检查是否要发送这一帧报文
+ 307:modules/motor/DJImotor/dji_motor.c ****     for (size_t i = 0; i < 6; ++i)
+ 1099              		.loc 1 307 17 view .LVU360
+ 1100 012c 0024     		movs	r4, #0
+ 1101 012e 00E0     		b	.L63
+ 1102              	.LVL88:
+ 1103              	.L64:
+ 1104              		.loc 1 307 31 is_stmt 1 discriminator 2 view .LVU361
+ 1105 0130 0134     		adds	r4, r4, #1
+ 1106              	.LVL89:
+ 1107              	.L63:
+ 1108              		.loc 1 307 24 discriminator 1 view .LVU362
+ 1109              		.loc 1 307 5 is_stmt 0 discriminator 1 view .LVU363
+ 1110 0132 052C     		cmp	r4, #5
+ 1111 0134 0CD8     		bhi	.L75
+ 308:modules/motor/DJImotor/dji_motor.c ****     {
+ 309:modules/motor/DJImotor/dji_motor.c ****         if (sender_enable_flag[i])
+ 1112              		.loc 1 309 9 is_stmt 1 view .LVU364
+ 1113              		.loc 1 309 31 is_stmt 0 view .LVU365
+ 1114 0136 0A4B     		ldr	r3, .L76+12
+ 1115 0138 1B5D     		ldrb	r3, [r3, r4]	@ zero_extendqisi2
+ 1116              		.loc 1 309 12 view .LVU366
+ 1117 013a 002B     		cmp	r3, #0
+ 1118 013c F8D0     		beq	.L64
+ 310:modules/motor/DJImotor/dji_motor.c ****         {
+ 311:modules/motor/DJImotor/dji_motor.c ****             CANTransmit(&sender_assignment[i], 1);
+ 1119              		.loc 1 311 13 is_stmt 1 view .LVU367
+ 1120 013e 04EB8413 		add	r3, r4, r4, lsl #6
+ 1121 0142 B7EE000A 		vmov.f32	s0, #1.0e+0
+ 1122 0146 0348     		ldr	r0, .L76
+ 1123 0148 1844     		add	r0, r0, r3
+ 1124 014a FFF7FEFF 		bl	CANTransmit
+ 1125              	.LVL90:
+ 1126 014e EFE7     		b	.L64
+ 1127              	.L75:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 29
+
+
+ 1128              	.LBE7:
+ 312:modules/motor/DJImotor/dji_motor.c ****         }
+ 313:modules/motor/DJImotor/dji_motor.c ****     }
+ 314:modules/motor/DJImotor/dji_motor.c **** }
+ 1129              		.loc 1 314 1 is_stmt 0 view .LVU368
+ 1130 0150 70BD     		pop	{r4, r5, r6, pc}
+ 1131              	.LVL91:
+ 1132              	.L77:
+ 1133              		.loc 1 314 1 view .LVU369
+ 1134 0152 00BF     		.align	2
+ 1135              	.L76:
+ 1136 0154 00000000 		.word	.LANCHOR3
+ 1137 0158 00000000 		.word	.LANCHOR2
+ 1138 015c 00000000 		.word	.LANCHOR1
+ 1139 0160 00000000 		.word	.LANCHOR0
+ 1140              		.cfi_endproc
+ 1141              	.LFE280:
+ 1143              		.section	.bss.dji_motor_instance,"aw",%nobits
+ 1144              		.align	2
+ 1145              		.set	.LANCHOR1,. + 0
+ 1148              	dji_motor_instance:
+ 1149 0000 00000000 		.space	48
+ 1149      00000000 
+ 1149      00000000 
+ 1149      00000000 
+ 1149      00000000 
+ 1150              		.section	.bss.idx,"aw",%nobits
+ 1151              		.set	.LANCHOR2,. + 0
+ 1154              	idx:
+ 1155 0000 00       		.space	1
+ 1156              		.section	.bss.sender_enable_flag,"aw",%nobits
+ 1157              		.align	2
+ 1158              		.set	.LANCHOR0,. + 0
+ 1161              	sender_enable_flag:
+ 1162 0000 00000000 		.space	6
+ 1162      0000
+ 1163              		.section	.data.sender_assignment,"aw"
+ 1164              		.align	2
+ 1165              		.set	.LANCHOR3,. + 0
+ 1168              	sender_assignment:
+ 1169 0000 00000000 		.word	hcan1
+ 1170 0004 FF010000 		.word	511
+ 1171 0008 00000000 		.space	4
+ 1172 000c 00000000 		.word	0
+ 1173 0010 00000000 		.word	0
+ 1174 0014 08000000 		.word	8
+ 1175 0018 00000000 		.space	4
+ 1176 001c 00000000 		.space	8
+ 1176      00000000 
+ 1177 0024 0000     		.ascii	"\000\000"
+ 1178 0026 00000000 		.space	6
+ 1178      0000
+ 1179 002c 00000000 		.space	21
+ 1179      00000000 
+ 1179      00000000 
+ 1179      00000000 
+ 1179      00000000 
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 30
+
+
+ 1180 0041 00000000 		.4byte	hcan1
+ 1181 0045 00020000 		.4byte	512
+ 1182 0049 00000000 		.space	4
+ 1183 004d 00000000 		.4byte	0
+ 1184 0051 00000000 		.4byte	0
+ 1185 0055 08000000 		.4byte	8
+ 1186 0059 00000000 		.space	4
+ 1187 005d 00000000 		.space	8
+ 1187      00000000 
+ 1188 0065 0000     		.ascii	"\000\000"
+ 1189 0067 00000000 		.space	6
+ 1189      0000
+ 1190 006d 00000000 		.space	21
+ 1190      00000000 
+ 1190      00000000 
+ 1190      00000000 
+ 1190      00000000 
+ 1191 0082 00000000 		.4byte	hcan1
+ 1192 0086 FF020000 		.4byte	767
+ 1193 008a 00000000 		.space	4
+ 1194 008e 00000000 		.4byte	0
+ 1195 0092 00000000 		.4byte	0
+ 1196 0096 08000000 		.4byte	8
+ 1197 009a 00000000 		.space	4
+ 1198 009e 00000000 		.space	8
+ 1198      00000000 
+ 1199 00a6 0000     		.ascii	"\000\000"
+ 1200 00a8 00000000 		.space	6
+ 1200      0000
+ 1201 00ae 00000000 		.space	21
+ 1201      00000000 
+ 1201      00000000 
+ 1201      00000000 
+ 1201      00000000 
+ 1202 00c3 00000000 		.4byte	hcan2
+ 1203 00c7 FF010000 		.4byte	511
+ 1204 00cb 00000000 		.space	4
+ 1205 00cf 00000000 		.4byte	0
+ 1206 00d3 00000000 		.4byte	0
+ 1207 00d7 08000000 		.4byte	8
+ 1208 00db 00000000 		.space	4
+ 1209 00df 00000000 		.space	8
+ 1209      00000000 
+ 1210 00e7 0000     		.ascii	"\000\000"
+ 1211 00e9 00000000 		.space	6
+ 1211      0000
+ 1212 00ef 00000000 		.space	21
+ 1212      00000000 
+ 1212      00000000 
+ 1212      00000000 
+ 1212      00000000 
+ 1213 0104 00000000 		.word	hcan2
+ 1214 0108 00020000 		.word	512
+ 1215 010c 00000000 		.space	4
+ 1216 0110 00000000 		.word	0
+ 1217 0114 00000000 		.word	0
+ 1218 0118 08000000 		.word	8
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 31
+
+
+ 1219 011c 00000000 		.space	4
+ 1220 0120 00000000 		.space	8
+ 1220      00000000 
+ 1221 0128 0000     		.ascii	"\000\000"
+ 1222 012a 00000000 		.space	6
+ 1222      0000
+ 1223 0130 00000000 		.space	21
+ 1223      00000000 
+ 1223      00000000 
+ 1223      00000000 
+ 1223      00000000 
+ 1224 0145 00000000 		.4byte	hcan2
+ 1225 0149 FF020000 		.4byte	767
+ 1226 014d 00000000 		.space	4
+ 1227 0151 00000000 		.4byte	0
+ 1228 0155 00000000 		.4byte	0
+ 1229 0159 08000000 		.4byte	8
+ 1230 015d 00000000 		.space	4
+ 1231 0161 00000000 		.space	8
+ 1231      00000000 
+ 1232 0169 0000     		.ascii	"\000\000"
+ 1233 016b 00000000 		.space	6
+ 1233      0000
+ 1234 0171 00000000 		.space	21
+ 1234      00000000 
+ 1234      00000000 
+ 1234      00000000 
+ 1234      00000000 
+ 1235              		.text
+ 1236              	.Letext0:
+ 1237              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 1238              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ 1239              		.file 4 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h"
+ 1240              		.file 5 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h"
+ 1241              		.file 6 "c:\\installsoftware\\arm-gnu-toolchian\\lib\\gcc\\arm-none-eabi\\10.3.1\\include\\stddef.
+ 1242              		.file 7 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_can.h"
+ 1243              		.file 8 "Inc/can.h"
+ 1244              		.file 9 "bsp/can/bsp_can.h"
+ 1245              		.file 10 "modules/algorithm/controller.h"
+ 1246              		.file 11 "modules/motor/motor_def.h"
+ 1247              		.file 12 "modules/daemon/daemon.h"
+ 1248              		.file 13 "modules/motor/DJImotor/dji_motor.h"
+ 1249              		.file 14 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\stdlib.h"
+ 1250              		.file 15 "bsp/dwt/bsp_dwt.h"
+ 1251              		.file 16 "<built-in>"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s 			page 32
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 dji_motor.c
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:20     .text.MotorSenderGrouping:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:25     .text.MotorSenderGrouping:00000000 MotorSenderGrouping
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:314    .text.MotorSenderGrouping:00000108 $d
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:322    .text.DJIMotorLostCallback:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:327    .text.DJIMotorLostCallback:00000000 DJIMotorLostCallback
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:344    .text.DecodeDJIMotor:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:349    .text.DecodeDJIMotor:00000000 DecodeDJIMotor
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:505    .text.DecodeDJIMotor:000000f4 $d
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:514    .text.DJIMotorChangeFeed:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:520    .text.DJIMotorChangeFeed:00000000 DJIMotorChangeFeed
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:554    .text.DJIMotorStop:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:560    .text.DJIMotorStop:00000000 DJIMotorStop
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:578    .text.DJIMotorEnable:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:584    .text.DJIMotorEnable:00000000 DJIMotorEnable
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:602    .text.DJIMotorInit:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:608    .text.DJIMotorInit:00000000 DJIMotorInit
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:753    .text.DJIMotorInit:000000c0 $d
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:761    .text.DJIMotorOuterLoop:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:767    .text.DJIMotorOuterLoop:00000000 DJIMotorOuterLoop
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:784    .text.DJIMotorSetRef:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:790    .text.DJIMotorSetRef:00000000 DJIMotorSetRef
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:807    .text.DJIMotorControl:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:813    .text.DJIMotorControl:00000000 DJIMotorControl
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1136   .text.DJIMotorControl:00000154 $d
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1144   .bss.dji_motor_instance:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1148   .bss.dji_motor_instance:00000000 dji_motor_instance
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1154   .bss.idx:00000000 idx
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1155   .bss.idx:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1157   .bss.sender_enable_flag:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1161   .bss.sender_enable_flag:00000000 sender_enable_flag
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1164   .data.sender_assignment:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\cc5HfOn6.s:1168   .data.sender_assignment:00000000 sender_assignment
+
+UNDEFINED SYMBOLS
+hcan1
+DaemonReload
+DWT_GetDeltaT
+malloc
+memset
+PIDInit
+CANRegister
+DaemonRegister
+PIDCalculate
+CANTransmit
+hcan2

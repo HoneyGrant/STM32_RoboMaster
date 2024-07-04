@@ -1,0 +1,1224 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"LK9025.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.LKMotorLostCallback,"ax",%progbits
+  20              		.align	1
+  21              		.syntax unified
+  22              		.thumb
+  23              		.thumb_func
+  25              	LKMotorLostCallback:
+  26              	.LVL0:
+  27              	.LFB272:
+  28              		.file 1 "modules/motor/LKmotor/LK9025.c"
+   1:modules/motor/LKmotor/LK9025.c **** #include "LK9025.h"
+   2:modules/motor/LKmotor/LK9025.c **** #include "stdlib.h"
+   3:modules/motor/LKmotor/LK9025.c **** #include "general_def.h"
+   4:modules/motor/LKmotor/LK9025.c **** #include "daemon.h"
+   5:modules/motor/LKmotor/LK9025.c **** #include "bsp_dwt.h"
+   6:modules/motor/LKmotor/LK9025.c **** #include "bsp_log.h"
+   7:modules/motor/LKmotor/LK9025.c **** 
+   8:modules/motor/LKmotor/LK9025.c **** static uint8_t idx;
+   9:modules/motor/LKmotor/LK9025.c **** static LKMotorInstance *lkmotor_instance[LK_MOTOR_MX_CNT] = {NULL};
+  10:modules/motor/LKmotor/LK9025.c **** static CANInstance *sender_instance; // 多电机发送时使用的caninstance(当前保存的是�
+  11:modules/motor/LKmotor/LK9025.c **** // 后续考虑兼容单电机和多电机指令.
+  12:modules/motor/LKmotor/LK9025.c **** 
+  13:modules/motor/LKmotor/LK9025.c **** /**
+  14:modules/motor/LKmotor/LK9025.c ****  * @brief 电机反馈报文解析
+  15:modules/motor/LKmotor/LK9025.c ****  *
+  16:modules/motor/LKmotor/LK9025.c ****  * @param _instance 发生中断的caninstance
+  17:modules/motor/LKmotor/LK9025.c ****  */
+  18:modules/motor/LKmotor/LK9025.c **** static void LKMotorDecode(CANInstance *_instance)
+  19:modules/motor/LKmotor/LK9025.c **** {
+  20:modules/motor/LKmotor/LK9025.c ****     LKMotorInstance *motor = (LKMotorInstance *)_instance->id; // 通过caninstance保存的father 
+  21:modules/motor/LKmotor/LK9025.c ****     LKMotor_Measure_t *measure = &motor->measure;
+  22:modules/motor/LKmotor/LK9025.c ****     uint8_t *rx_buff = _instance->rx_buff;
+  23:modules/motor/LKmotor/LK9025.c **** 
+  24:modules/motor/LKmotor/LK9025.c ****     DaemonReload(motor->daemon); // 喂狗
+  25:modules/motor/LKmotor/LK9025.c ****     measure->feed_dt = DWT_GetDeltaT(&measure->feed_dwt_cnt);
+  26:modules/motor/LKmotor/LK9025.c **** 
+  27:modules/motor/LKmotor/LK9025.c ****     measure->last_ecd = measure->ecd;
+  28:modules/motor/LKmotor/LK9025.c ****     measure->ecd = (uint16_t)((rx_buff[7] << 8) | rx_buff[6]);
+  29:modules/motor/LKmotor/LK9025.c **** 
+  30:modules/motor/LKmotor/LK9025.c ****     measure->angle_single_round = ECD_ANGLE_COEF_LK * measure->ecd;
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 2
+
+
+  31:modules/motor/LKmotor/LK9025.c **** 
+  32:modules/motor/LKmotor/LK9025.c ****     measure->speed_rads = (1 - SPEED_SMOOTH_COEF) * measure->speed_rads +
+  33:modules/motor/LKmotor/LK9025.c ****                           DEGREE_2_RAD * SPEED_SMOOTH_COEF * (float)((int16_t)(rx_buff[5] << 8 | rx
+  34:modules/motor/LKmotor/LK9025.c **** 
+  35:modules/motor/LKmotor/LK9025.c ****     measure->real_current = (1 - CURRENT_SMOOTH_COEF) * measure->real_current +
+  36:modules/motor/LKmotor/LK9025.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rx_buff[3] << 8 | rx_buff[2]));
+  37:modules/motor/LKmotor/LK9025.c **** 
+  38:modules/motor/LKmotor/LK9025.c ****     measure->temperature = rx_buff[1];
+  39:modules/motor/LKmotor/LK9025.c **** 
+  40:modules/motor/LKmotor/LK9025.c ****     if (measure->ecd - measure->last_ecd > 32768)
+  41:modules/motor/LKmotor/LK9025.c ****         measure->total_round--;
+  42:modules/motor/LKmotor/LK9025.c ****     else if (measure->ecd - measure->last_ecd < -32768)
+  43:modules/motor/LKmotor/LK9025.c ****         measure->total_round++;
+  44:modules/motor/LKmotor/LK9025.c ****     measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+  45:modules/motor/LKmotor/LK9025.c **** }
+  46:modules/motor/LKmotor/LK9025.c **** 
+  47:modules/motor/LKmotor/LK9025.c **** static void LKMotorLostCallback(void *motor_ptr)
+  48:modules/motor/LKmotor/LK9025.c **** {
+  29              		.loc 1 48 1 view -0
+  30              		.cfi_startproc
+  31              		@ args = 0, pretend = 0, frame = 0
+  32              		@ frame_needed = 0, uses_anonymous_args = 0
+  33              		@ link register save eliminated.
+  49:modules/motor/LKmotor/LK9025.c ****     LKMotorInstance *motor = (LKMotorInstance *)motor_ptr;
+  34              		.loc 1 49 5 view .LVU1
+  50:modules/motor/LKmotor/LK9025.c ****     LOGWARNING("[LKMotor] motor lost, id: %d", motor->motor_can_ins->tx_id);
+  35              		.loc 1 50 76 view .LVU2
+  51:modules/motor/LKmotor/LK9025.c **** }
+  36              		.loc 1 51 1 is_stmt 0 view .LVU3
+  37 0000 7047     		bx	lr
+  38              		.cfi_endproc
+  39              	.LFE272:
+  41              		.section	.text.LKMotorDecode,"ax",%progbits
+  42              		.align	1
+  43              		.syntax unified
+  44              		.thumb
+  45              		.thumb_func
+  47              	LKMotorDecode:
+  48              	.LVL1:
+  49              	.LFB271:
+  19:modules/motor/LKmotor/LK9025.c ****     LKMotorInstance *motor = (LKMotorInstance *)_instance->id; // 通过caninstance保存的father 
+  50              		.loc 1 19 1 is_stmt 1 view -0
+  51              		.cfi_startproc
+  52              		@ args = 0, pretend = 0, frame = 0
+  53              		@ frame_needed = 0, uses_anonymous_args = 0
+  19:modules/motor/LKmotor/LK9025.c ****     LKMotorInstance *motor = (LKMotorInstance *)_instance->id; // 通过caninstance保存的father 
+  54              		.loc 1 19 1 is_stmt 0 view .LVU5
+  55 0000 38B5     		push	{r3, r4, r5, lr}
+  56              	.LCFI0:
+  57              		.cfi_def_cfa_offset 16
+  58              		.cfi_offset 3, -16
+  59              		.cfi_offset 4, -12
+  60              		.cfi_offset 5, -8
+  61              		.cfi_offset 14, -4
+  62 0002 0546     		mov	r5, r0
+  20:modules/motor/LKmotor/LK9025.c ****     LKMotor_Measure_t *measure = &motor->measure;
+  63              		.loc 1 20 5 is_stmt 1 view .LVU6
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 3
+
+
+  20:modules/motor/LKmotor/LK9025.c ****     LKMotor_Measure_t *measure = &motor->measure;
+  64              		.loc 1 20 22 is_stmt 0 view .LVU7
+  65 0004 D0F83D40 		ldr	r4, [r0, #61]	@ unaligned
+  66              	.LVL2:
+  21:modules/motor/LKmotor/LK9025.c ****     uint8_t *rx_buff = _instance->rx_buff;
+  67              		.loc 1 21 5 is_stmt 1 view .LVU8
+  22:modules/motor/LKmotor/LK9025.c **** 
+  68              		.loc 1 22 5 view .LVU9
+  24:modules/motor/LKmotor/LK9025.c ****     measure->feed_dt = DWT_GetDeltaT(&measure->feed_dwt_cnt);
+  69              		.loc 1 24 5 view .LVU10
+  70 0008 D4F8AC01 		ldr	r0, [r4, #428]
+  71              	.LVL3:
+  24:modules/motor/LKmotor/LK9025.c ****     measure->feed_dt = DWT_GetDeltaT(&measure->feed_dwt_cnt);
+  72              		.loc 1 24 5 is_stmt 0 view .LVU11
+  73 000c FFF7FEFF 		bl	DaemonReload
+  74              	.LVL4:
+  25:modules/motor/LKmotor/LK9025.c **** 
+  75              		.loc 1 25 5 is_stmt 1 view .LVU12
+  25:modules/motor/LKmotor/LK9025.c **** 
+  76              		.loc 1 25 24 is_stmt 0 view .LVU13
+  77 0010 04F11C00 		add	r0, r4, #28
+  78 0014 FFF7FEFF 		bl	DWT_GetDeltaT
+  79              	.LVL5:
+  25:modules/motor/LKmotor/LK9025.c **** 
+  80              		.loc 1 25 22 view .LVU14
+  81 0018 84ED060A 		vstr.32	s0, [r4, #24]
+  27:modules/motor/LKmotor/LK9025.c ****     measure->ecd = (uint16_t)((rx_buff[7] << 8) | rx_buff[6]);
+  82              		.loc 1 27 5 is_stmt 1 view .LVU15
+  27:modules/motor/LKmotor/LK9025.c ****     measure->ecd = (uint16_t)((rx_buff[7] << 8) | rx_buff[6]);
+  83              		.loc 1 27 32 is_stmt 0 view .LVU16
+  84 001c 6188     		ldrh	r1, [r4, #2]
+  27:modules/motor/LKmotor/LK9025.c ****     measure->ecd = (uint16_t)((rx_buff[7] << 8) | rx_buff[6]);
+  85              		.loc 1 27 23 view .LVU17
+  86 001e 2180     		strh	r1, [r4]	@ movhi
+  28:modules/motor/LKmotor/LK9025.c **** 
+  87              		.loc 1 28 5 is_stmt 1 view .LVU18
+  28:modules/motor/LKmotor/LK9025.c **** 
+  88              		.loc 1 28 39 is_stmt 0 view .LVU19
+  89 0020 95F83330 		ldrb	r3, [r5, #51]	@ zero_extendqisi2
+  28:modules/motor/LKmotor/LK9025.c **** 
+  90              		.loc 1 28 58 view .LVU20
+  91 0024 95F83220 		ldrb	r2, [r5, #50]	@ zero_extendqisi2
+  28:modules/motor/LKmotor/LK9025.c **** 
+  92              		.loc 1 28 20 view .LVU21
+  93 0028 42EA0322 		orr	r2, r2, r3, lsl #8
+  28:modules/motor/LKmotor/LK9025.c **** 
+  94              		.loc 1 28 18 view .LVU22
+  95 002c 6280     		strh	r2, [r4, #2]	@ movhi
+  30:modules/motor/LKmotor/LK9025.c **** 
+  96              		.loc 1 30 5 is_stmt 1 view .LVU23
+  30:modules/motor/LKmotor/LK9025.c **** 
+  97              		.loc 1 30 53 is_stmt 0 view .LVU24
+  98 002e 07EE902A 		vmov	s15, r2	@ int
+  99 0032 F8EEE77A 		vcvt.f32.s32	s15, s15
+ 100 0036 DFED2F6A 		vldr.32	s13, .L6
+ 101 003a 67EEA66A 		vmul.f32	s13, s15, s13
+  30:modules/motor/LKmotor/LK9025.c **** 
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 4
+
+
+ 102              		.loc 1 30 33 view .LVU25
+ 103 003e C4ED016A 		vstr.32	s13, [r4, #4]
+  32:modules/motor/LKmotor/LK9025.c ****                           DEGREE_2_RAD * SPEED_SMOOTH_COEF * (float)((int16_t)(rx_buff[5] << 8 | rx
+ 104              		.loc 1 32 5 is_stmt 1 view .LVU26
+  32:modules/motor/LKmotor/LK9025.c ****                           DEGREE_2_RAD * SPEED_SMOOTH_COEF * (float)((int16_t)(rx_buff[5] << 8 | rx
+ 105              		.loc 1 32 60 is_stmt 0 view .LVU27
+ 106 0042 D4ED027A 		vldr.32	s15, [r4, #8]
+  32:modules/motor/LKmotor/LK9025.c ****                           DEGREE_2_RAD * SPEED_SMOOTH_COEF * (float)((int16_t)(rx_buff[5] << 8 | rx
+ 107              		.loc 1 32 51 view .LVU28
+ 108 0046 9FED2C7A 		vldr.32	s14, .L6+4
+ 109 004a 27EE877A 		vmul.f32	s14, s15, s14
+  33:modules/motor/LKmotor/LK9025.c **** 
+ 110              		.loc 1 33 87 view .LVU29
+ 111 004e 95F83100 		ldrb	r0, [r5, #49]	@ zero_extendqisi2
+  33:modules/motor/LKmotor/LK9025.c **** 
+ 112              		.loc 1 33 105 view .LVU30
+ 113 0052 95F83030 		ldrb	r3, [r5, #48]	@ zero_extendqisi2
+  33:modules/motor/LKmotor/LK9025.c **** 
+ 114              		.loc 1 33 70 view .LVU31
+ 115 0056 43EA0023 		orr	r3, r3, r0, lsl #8
+ 116 005a 1BB2     		sxth	r3, r3
+ 117 005c 07EE903A 		vmov	s15, r3	@ int
+  33:modules/motor/LKmotor/LK9025.c **** 
+ 118              		.loc 1 33 62 view .LVU32
+ 119 0060 F8EEE77A 		vcvt.f32.s32	s15, s15
+  33:modules/motor/LKmotor/LK9025.c **** 
+ 120              		.loc 1 33 60 view .LVU33
+ 121 0064 9FED256A 		vldr.32	s12, .L6+8
+ 122 0068 67EE867A 		vmul.f32	s15, s15, s12
+  32:modules/motor/LKmotor/LK9025.c ****                           DEGREE_2_RAD * SPEED_SMOOTH_COEF * (float)((int16_t)(rx_buff[5] << 8 | rx
+ 123              		.loc 1 32 73 view .LVU34
+ 124 006c 77EE277A 		vadd.f32	s15, s14, s15
+  32:modules/motor/LKmotor/LK9025.c ****                           DEGREE_2_RAD * SPEED_SMOOTH_COEF * (float)((int16_t)(rx_buff[5] << 8 | rx
+ 125              		.loc 1 32 25 view .LVU35
+ 126 0070 C4ED027A 		vstr.32	s15, [r4, #8]
+  35:modules/motor/LKmotor/LK9025.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rx_buff[3] << 8 | rx_buff[2]));
+ 127              		.loc 1 35 5 is_stmt 1 view .LVU36
+  35:modules/motor/LKmotor/LK9025.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rx_buff[3] << 8 | rx_buff[2]));
+ 128              		.loc 1 35 64 is_stmt 0 view .LVU37
+ 129 0074 B4F90C30 		ldrsh	r3, [r4, #12]
+ 130 0078 07EE903A 		vmov	s15, r3	@ int
+  35:modules/motor/LKmotor/LK9025.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rx_buff[3] << 8 | rx_buff[2]));
+ 131              		.loc 1 35 55 view .LVU38
+ 132 007c F8EEE77A 		vcvt.f32.s32	s15, s15
+ 133 0080 9FED1F7A 		vldr.32	s14, .L6+12
+ 134 0084 27EE877A 		vmul.f32	s14, s15, s14
+  36:modules/motor/LKmotor/LK9025.c **** 
+ 135              		.loc 1 36 76 view .LVU39
+ 136 0088 95F82F00 		ldrb	r0, [r5, #47]	@ zero_extendqisi2
+  36:modules/motor/LKmotor/LK9025.c **** 
+ 137              		.loc 1 36 94 view .LVU40
+ 138 008c 95F82E30 		ldrb	r3, [r5, #46]	@ zero_extendqisi2
+  36:modules/motor/LKmotor/LK9025.c **** 
+ 139              		.loc 1 36 59 view .LVU41
+ 140 0090 43EA0023 		orr	r3, r3, r0, lsl #8
+ 141 0094 1BB2     		sxth	r3, r3
+ 142 0096 07EE903A 		vmov	s15, r3	@ int
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 5
+
+
+  36:modules/motor/LKmotor/LK9025.c **** 
+ 143              		.loc 1 36 51 view .LVU42
+ 144 009a F8EEE77A 		vcvt.f32.s32	s15, s15
+  36:modules/motor/LKmotor/LK9025.c **** 
+ 145              		.loc 1 36 49 view .LVU43
+ 146 009e 9FED196A 		vldr.32	s12, .L6+16
+ 147 00a2 67EE867A 		vmul.f32	s15, s15, s12
+  35:modules/motor/LKmotor/LK9025.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rx_buff[3] << 8 | rx_buff[2]));
+ 148              		.loc 1 35 79 view .LVU44
+ 149 00a6 77EE277A 		vadd.f32	s15, s14, s15
+  35:modules/motor/LKmotor/LK9025.c ****                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rx_buff[3] << 8 | rx_buff[2]));
+ 150              		.loc 1 35 27 view .LVU45
+ 151 00aa FDEEE77A 		vcvt.s32.f32	s15, s15
+ 152 00ae 17EE903A 		vmov	r3, s15	@ int
+ 153 00b2 A381     		strh	r3, [r4, #12]	@ movhi
+  38:modules/motor/LKmotor/LK9025.c **** 
+ 154              		.loc 1 38 5 is_stmt 1 view .LVU46
+  38:modules/motor/LKmotor/LK9025.c **** 
+ 155              		.loc 1 38 26 is_stmt 0 view .LVU47
+ 156 00b4 95F82D30 		ldrb	r3, [r5, #45]	@ zero_extendqisi2
+ 157 00b8 A373     		strb	r3, [r4, #14]
+  40:modules/motor/LKmotor/LK9025.c ****         measure->total_round--;
+ 158              		.loc 1 40 5 is_stmt 1 view .LVU48
+  40:modules/motor/LKmotor/LK9025.c ****         measure->total_round--;
+ 159              		.loc 1 40 22 is_stmt 0 view .LVU49
+ 160 00ba 521A     		subs	r2, r2, r1
+  40:modules/motor/LKmotor/LK9025.c ****         measure->total_round--;
+ 161              		.loc 1 40 8 view .LVU50
+ 162 00bc B2F5004F 		cmp	r2, #32768
+ 163 00c0 10DD     		ble	.L3
+  41:modules/motor/LKmotor/LK9025.c ****     else if (measure->ecd - measure->last_ecd < -32768)
+ 164              		.loc 1 41 9 is_stmt 1 view .LVU51
+  41:modules/motor/LKmotor/LK9025.c ****     else if (measure->ecd - measure->last_ecd < -32768)
+ 165              		.loc 1 41 16 is_stmt 0 view .LVU52
+ 166 00c2 6369     		ldr	r3, [r4, #20]
+  41:modules/motor/LKmotor/LK9025.c ****     else if (measure->ecd - measure->last_ecd < -32768)
+ 167              		.loc 1 41 29 view .LVU53
+ 168 00c4 013B     		subs	r3, r3, #1
+ 169 00c6 6361     		str	r3, [r4, #20]
+ 170              	.L4:
+  44:modules/motor/LKmotor/LK9025.c **** }
+ 171              		.loc 1 44 5 is_stmt 1 view .LVU54
+  44:modules/motor/LKmotor/LK9025.c **** }
+ 172              		.loc 1 44 35 is_stmt 0 view .LVU55
+ 173 00c8 6369     		ldr	r3, [r4, #20]
+  44:modules/motor/LKmotor/LK9025.c **** }
+ 174              		.loc 1 44 49 view .LVU56
+ 175 00ca 4FF4B472 		mov	r2, #360
+ 176 00ce 02FB03F3 		mul	r3, r2, r3
+ 177 00d2 07EE903A 		vmov	s15, r3	@ int
+  44:modules/motor/LKmotor/LK9025.c **** }
+ 178              		.loc 1 44 55 view .LVU57
+ 179 00d6 F8EEE77A 		vcvt.f32.s32	s15, s15
+ 180 00da 77EEA67A 		vadd.f32	s15, s15, s13
+  44:modules/motor/LKmotor/LK9025.c **** }
+ 181              		.loc 1 44 26 view .LVU58
+ 182 00de C4ED047A 		vstr.32	s15, [r4, #16]
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 6
+
+
+  45:modules/motor/LKmotor/LK9025.c **** 
+ 183              		.loc 1 45 1 view .LVU59
+ 184 00e2 38BD     		pop	{r3, r4, r5, pc}
+ 185              	.LVL6:
+ 186              	.L3:
+  42:modules/motor/LKmotor/LK9025.c ****         measure->total_round++;
+ 187              		.loc 1 42 10 is_stmt 1 view .LVU60
+  42:modules/motor/LKmotor/LK9025.c ****         measure->total_round++;
+ 188              		.loc 1 42 13 is_stmt 0 view .LVU61
+ 189 00e4 12F5004F 		cmn	r2, #32768
+ 190 00e8 EEDA     		bge	.L4
+  43:modules/motor/LKmotor/LK9025.c ****     measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+ 191              		.loc 1 43 9 is_stmt 1 view .LVU62
+  43:modules/motor/LKmotor/LK9025.c ****     measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+ 192              		.loc 1 43 16 is_stmt 0 view .LVU63
+ 193 00ea 6369     		ldr	r3, [r4, #20]
+  43:modules/motor/LKmotor/LK9025.c ****     measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+ 194              		.loc 1 43 29 view .LVU64
+ 195 00ec 0133     		adds	r3, r3, #1
+ 196 00ee 6361     		str	r3, [r4, #20]
+ 197 00f0 EAE7     		b	.L4
+ 198              	.L7:
+ 199 00f2 00BF     		.align	2
+ 200              	.L6:
+ 201 00f4 0000B43B 		.word	1001652224
+ 202 00f8 9899193E 		.word	1041865112
+ 203 00fc C10F733C 		.word	1014173633
+ 204 0100 D0CCCC3D 		.word	1036831952
+ 205 0104 6666663F 		.word	1063675494
+ 206              		.cfi_endproc
+ 207              	.LFE271:
+ 209              		.section	.text.LKMotorControl,"ax",%progbits
+ 210              		.align	1
+ 211              		.global	LKMotorControl
+ 212              		.syntax unified
+ 213              		.thumb
+ 214              		.thumb_func
+ 216              	LKMotorControl:
+ 217              	.LFB274:
+  52:modules/motor/LKmotor/LK9025.c **** 
+  53:modules/motor/LKmotor/LK9025.c **** LKMotorInstance *LKMotorInit(Motor_Init_Config_s *config)
+  54:modules/motor/LKmotor/LK9025.c **** {
+  55:modules/motor/LKmotor/LK9025.c ****     LKMotorInstance *motor = (LKMotorInstance *)malloc(sizeof(LKMotorInstance));
+  56:modules/motor/LKmotor/LK9025.c ****     motor = (LKMotorInstance *)malloc(sizeof(LKMotorInstance));
+  57:modules/motor/LKmotor/LK9025.c ****     memset(motor, 0, sizeof(LKMotorInstance));
+  58:modules/motor/LKmotor/LK9025.c **** 
+  59:modules/motor/LKmotor/LK9025.c ****     motor->motor_settings = config->controller_setting_init_config;
+  60:modules/motor/LKmotor/LK9025.c ****     PIDInit(&motor->current_PID, &config->controller_param_init_config.current_PID);
+  61:modules/motor/LKmotor/LK9025.c ****     PIDInit(&motor->speed_PID, &config->controller_param_init_config.speed_PID);
+  62:modules/motor/LKmotor/LK9025.c ****     PIDInit(&motor->angle_PID, &config->controller_param_init_config.angle_PID);
+  63:modules/motor/LKmotor/LK9025.c ****     motor->other_angle_feedback_ptr = config->controller_param_init_config.other_angle_feedback_ptr
+  64:modules/motor/LKmotor/LK9025.c ****     motor->other_speed_feedback_ptr = config->controller_param_init_config.other_speed_feedback_ptr
+  65:modules/motor/LKmotor/LK9025.c **** 
+  66:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.id = motor;
+  67:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.can_module_callback = LKMotorDecode;
+  68:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.rx_id = 0x140 + config->can_init_config.tx_id;
+  69:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.tx_id = config->can_init_config.tx_id + 0x280 - 1; // 这样在发送�
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 7
+
+
+  70:modules/motor/LKmotor/LK9025.c ****     motor->motor_can_ins = CANRegister(&config->can_init_config);
+  71:modules/motor/LKmotor/LK9025.c **** 
+  72:modules/motor/LKmotor/LK9025.c ****     if (idx == 0) // 用第一个电机的can instance发送数据
+  73:modules/motor/LKmotor/LK9025.c ****     {
+  74:modules/motor/LKmotor/LK9025.c ****         sender_instance = motor->motor_can_ins;
+  75:modules/motor/LKmotor/LK9025.c ****         sender_instance->tx_id = 0x280; //  修改tx_id为0x280,用于多电机发送,不用管其�
+  76:modules/motor/LKmotor/LK9025.c ****     }
+  77:modules/motor/LKmotor/LK9025.c **** 
+  78:modules/motor/LKmotor/LK9025.c ****     LKMotorEnable(motor);
+  79:modules/motor/LKmotor/LK9025.c ****     DWT_GetDeltaT(&motor->measure.feed_dwt_cnt);
+  80:modules/motor/LKmotor/LK9025.c ****     lkmotor_instance[idx++] = motor;
+  81:modules/motor/LKmotor/LK9025.c **** 
+  82:modules/motor/LKmotor/LK9025.c ****     Daemon_Init_Config_s daemon_config = {
+  83:modules/motor/LKmotor/LK9025.c ****         .callback = LKMotorLostCallback,
+  84:modules/motor/LKmotor/LK9025.c ****         .owner_id = motor,
+  85:modules/motor/LKmotor/LK9025.c ****         .reload_count = 5, // 50ms
+  86:modules/motor/LKmotor/LK9025.c ****     };
+  87:modules/motor/LKmotor/LK9025.c ****     motor->daemon = DaemonRegister(&daemon_config);
+  88:modules/motor/LKmotor/LK9025.c **** 
+  89:modules/motor/LKmotor/LK9025.c ****     return motor;
+  90:modules/motor/LKmotor/LK9025.c **** }
+  91:modules/motor/LKmotor/LK9025.c **** 
+  92:modules/motor/LKmotor/LK9025.c **** /* 第一个电机的can instance用于发送数据,向其tx_buff填充数据 */
+  93:modules/motor/LKmotor/LK9025.c **** void LKMotorControl()
+  94:modules/motor/LKmotor/LK9025.c **** {
+ 218              		.loc 1 94 1 is_stmt 1 view -0
+ 219              		.cfi_startproc
+ 220              		@ args = 0, pretend = 0, frame = 0
+ 221              		@ frame_needed = 0, uses_anonymous_args = 0
+ 222 0000 38B5     		push	{r3, r4, r5, lr}
+ 223              	.LCFI1:
+ 224              		.cfi_def_cfa_offset 16
+ 225              		.cfi_offset 3, -16
+ 226              		.cfi_offset 4, -12
+ 227              		.cfi_offset 5, -8
+ 228              		.cfi_offset 14, -4
+  95:modules/motor/LKmotor/LK9025.c ****     float pid_measure, pid_ref;
+ 229              		.loc 1 95 5 view .LVU66
+  96:modules/motor/LKmotor/LK9025.c ****     int16_t set;
+ 230              		.loc 1 96 5 view .LVU67
+  97:modules/motor/LKmotor/LK9025.c ****     LKMotorInstance *motor;
+ 231              		.loc 1 97 5 view .LVU68
+  98:modules/motor/LKmotor/LK9025.c ****     LKMotor_Measure_t *measure;
+ 232              		.loc 1 98 5 view .LVU69
+  99:modules/motor/LKmotor/LK9025.c ****     Motor_Control_Setting_s *setting;
+ 233              		.loc 1 99 5 view .LVU70
+ 100:modules/motor/LKmotor/LK9025.c **** 
+ 101:modules/motor/LKmotor/LK9025.c ****     for (size_t i = 0; i < idx; ++i)
+ 234              		.loc 1 101 5 view .LVU71
+ 235              	.LBB2:
+ 236              		.loc 1 101 10 view .LVU72
+ 237              	.LVL7:
+ 238              		.loc 1 101 17 is_stmt 0 view .LVU73
+ 239 0002 0025     		movs	r5, #0
+ 240              		.loc 1 101 5 view .LVU74
+ 241 0004 3FE0     		b	.L9
+ 242              	.LVL8:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 8
+
+
+ 243              	.L27:
+ 102:modules/motor/LKmotor/LK9025.c ****     {
+ 103:modules/motor/LKmotor/LK9025.c ****         motor = lkmotor_instance[i];
+ 104:modules/motor/LKmotor/LK9025.c ****         measure = &motor->measure;
+ 105:modules/motor/LKmotor/LK9025.c ****         setting = &motor->motor_settings;
+ 106:modules/motor/LKmotor/LK9025.c ****         pid_ref = motor->pid_ref;
+ 107:modules/motor/LKmotor/LK9025.c **** 
+ 108:modules/motor/LKmotor/LK9025.c ****         if ((setting->close_loop_type & ANGLE_LOOP) && setting->outer_loop_type == ANGLE_LOOP)
+ 109:modules/motor/LKmotor/LK9025.c ****         {
+ 110:modules/motor/LKmotor/LK9025.c ****             if (setting->angle_feedback_source == OTHER_FEED)
+ 244              		.loc 1 110 13 is_stmt 1 view .LVU75
+ 245              		.loc 1 110 24 is_stmt 0 view .LVU76
+ 246 0006 94F82430 		ldrb	r3, [r4, #36]	@ zero_extendqisi2
+ 247              		.loc 1 110 16 view .LVU77
+ 248 000a 012B     		cmp	r3, #1
+ 249 000c 16D0     		beq	.L22
+ 111:modules/motor/LKmotor/LK9025.c ****                 pid_measure = *motor->other_angle_feedback_ptr;
+ 112:modules/motor/LKmotor/LK9025.c ****             else
+ 113:modules/motor/LKmotor/LK9025.c ****                 pid_measure = measure->real_current;
+ 250              		.loc 1 113 17 is_stmt 1 view .LVU78
+ 251              		.loc 1 113 38 is_stmt 0 view .LVU79
+ 252 000e B4F90C30 		ldrsh	r3, [r4, #12]
+ 253 0012 00EE103A 		vmov	s0, r3	@ int
+ 254              		.loc 1 113 29 view .LVU80
+ 255 0016 B8EEC00A 		vcvt.f32.s32	s0, s0
+ 256              	.LVL9:
+ 257              	.L12:
+ 114:modules/motor/LKmotor/LK9025.c ****             pid_ref = PIDCalculate(&motor->angle_PID, pid_measure, pid_ref);
+ 258              		.loc 1 114 13 is_stmt 1 view .LVU81
+ 259              		.loc 1 114 23 is_stmt 0 view .LVU82
+ 260 001a 04F59470 		add	r0, r4, #296
+ 261 001e FFF7FEFF 		bl	PIDCalculate
+ 262              	.LVL10:
+ 263              		.loc 1 114 23 view .LVU83
+ 264 0022 F0EE400A 		vmov.f32	s1, s0
+ 265              	.LVL11:
+ 115:modules/motor/LKmotor/LK9025.c ****             if (setting->feedforward_flag & SPEED_FEEDFORWARD)
+ 266              		.loc 1 115 13 is_stmt 1 view .LVU84
+ 267              		.loc 1 115 24 is_stmt 0 view .LVU85
+ 268 0026 94F82630 		ldrb	r3, [r4, #38]	@ zero_extendqisi2
+ 269              		.loc 1 115 16 view .LVU86
+ 270 002a 13F0020F 		tst	r3, #2
+ 271 002e 3CD0     		beq	.L10
+ 116:modules/motor/LKmotor/LK9025.c ****                 pid_ref += *motor->speed_feedforward_ptr;
+ 272              		.loc 1 116 17 is_stmt 1 view .LVU87
+ 273              		.loc 1 116 34 is_stmt 0 view .LVU88
+ 274 0030 236B     		ldr	r3, [r4, #48]
+ 275              		.loc 1 116 28 view .LVU89
+ 276 0032 D3ED007A 		vldr.32	s15, [r3]
+ 277              		.loc 1 116 25 view .LVU90
+ 278 0036 70EE270A 		vadd.f32	s1, s0, s15
+ 279              	.LVL12:
+ 280              		.loc 1 116 25 view .LVU91
+ 281 003a 36E0     		b	.L10
+ 282              	.L22:
+ 111:modules/motor/LKmotor/LK9025.c ****             else
+ 283              		.loc 1 111 17 is_stmt 1 view .LVU92
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 9
+
+
+ 111:modules/motor/LKmotor/LK9025.c ****             else
+ 284              		.loc 1 111 37 is_stmt 0 view .LVU93
+ 285 003c A36A     		ldr	r3, [r4, #40]
+ 111:modules/motor/LKmotor/LK9025.c ****             else
+ 286              		.loc 1 111 29 view .LVU94
+ 287 003e 93ED000A 		vldr.32	s0, [r3]
+ 288              	.LVL13:
+ 111:modules/motor/LKmotor/LK9025.c ****             else
+ 289              		.loc 1 111 29 view .LVU95
+ 290 0042 EAE7     		b	.L12
+ 291              	.LVL14:
+ 292              	.L28:
+ 117:modules/motor/LKmotor/LK9025.c ****         }
+ 118:modules/motor/LKmotor/LK9025.c **** 
+ 119:modules/motor/LKmotor/LK9025.c ****         if ((setting->close_loop_type & SPEED_LOOP) && setting->outer_loop_type & (ANGLE_LOOP | SPE
+ 120:modules/motor/LKmotor/LK9025.c ****         {
+ 121:modules/motor/LKmotor/LK9025.c ****             if (setting->angle_feedback_source == OTHER_FEED)
+ 122:modules/motor/LKmotor/LK9025.c ****                 pid_measure = *motor->other_speed_feedback_ptr;
+ 293              		.loc 1 122 17 is_stmt 1 view .LVU96
+ 294              		.loc 1 122 37 is_stmt 0 view .LVU97
+ 295 0044 E36A     		ldr	r3, [r4, #44]
+ 296              		.loc 1 122 29 view .LVU98
+ 297 0046 93ED000A 		vldr.32	s0, [r3]
+ 298              	.LVL15:
+ 299              		.loc 1 122 29 view .LVU99
+ 300 004a 3EE0     		b	.L15
+ 301              	.LVL16:
+ 302              	.L13:
+ 123:modules/motor/LKmotor/LK9025.c ****             else
+ 124:modules/motor/LKmotor/LK9025.c ****                 pid_measure = measure->speed_rads;
+ 125:modules/motor/LKmotor/LK9025.c ****             pid_ref = PIDCalculate(&motor->angle_PID, pid_measure, pid_ref);
+ 126:modules/motor/LKmotor/LK9025.c ****             if (setting->feedforward_flag & CURRENT_FEEDFORWARD)
+ 127:modules/motor/LKmotor/LK9025.c ****                 pid_ref += *motor->current_feedforward_ptr;
+ 128:modules/motor/LKmotor/LK9025.c ****         }
+ 129:modules/motor/LKmotor/LK9025.c **** 
+ 130:modules/motor/LKmotor/LK9025.c ****         if (setting->close_loop_type & CURRENT_LOOP)
+ 303              		.loc 1 130 9 is_stmt 1 view .LVU100
+ 304              		.loc 1 130 20 is_stmt 0 view .LVU101
+ 305 004c 94F82130 		ldrb	r3, [r4, #33]	@ zero_extendqisi2
+ 306              		.loc 1 130 12 view .LVU102
+ 307 0050 13F0010F 		tst	r3, #1
+ 308 0054 4AD1     		bne	.L23
+ 309              	.L16:
+ 131:modules/motor/LKmotor/LK9025.c ****         {
+ 132:modules/motor/LKmotor/LK9025.c ****             pid_ref = PIDCalculate(&motor->current_PID, measure->real_current, pid_ref);
+ 133:modules/motor/LKmotor/LK9025.c ****         }
+ 134:modules/motor/LKmotor/LK9025.c **** 
+ 135:modules/motor/LKmotor/LK9025.c ****         set = pid_ref;
+ 310              		.loc 1 135 9 is_stmt 1 view .LVU103
+ 311              		.loc 1 135 13 is_stmt 0 view .LVU104
+ 312 0056 FDEEE00A 		vcvt.s32.f32	s1, s1
+ 313              	.LVL17:
+ 314              		.loc 1 135 13 view .LVU105
+ 315 005a 10EE903A 		vmov	r3, s1	@ int
+ 316 005e 1BB2     		sxth	r3, r3
+ 317              	.LVL18:
+ 136:modules/motor/LKmotor/LK9025.c ****         if (setting->motor_reverse_flag == MOTOR_DIRECTION_REVERSE)
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 10
+
+
+ 318              		.loc 1 136 9 is_stmt 1 view .LVU106
+ 319              		.loc 1 136 20 is_stmt 0 view .LVU107
+ 320 0060 94F82220 		ldrb	r2, [r4, #34]	@ zero_extendqisi2
+ 321              		.loc 1 136 12 view .LVU108
+ 322 0064 012A     		cmp	r2, #1
+ 323 0066 4ED0     		beq	.L24
+ 324              	.L17:
+ 137:modules/motor/LKmotor/LK9025.c ****             set *= -1;
+ 138:modules/motor/LKmotor/LK9025.c ****         // 这里随便写的,为了兼容多电机命令.后续应该将tx_id以更好的方式表
+ 139:modules/motor/LKmotor/LK9025.c ****         memcpy(sender_instance->tx_buff + (motor->motor_can_ins->tx_id - 0x280) * 2, &set, sizeof(u
+ 325              		.loc 1 139 9 is_stmt 1 view .LVU109
+ 326              		.loc 1 139 31 is_stmt 0 view .LVU110
+ 327 0068 314A     		ldr	r2, .L30
+ 328 006a 1268     		ldr	r2, [r2]
+ 329              		.loc 1 139 16 view .LVU111
+ 330 006c 2432     		adds	r2, r2, #36
+ 331              		.loc 1 139 49 view .LVU112
+ 332 006e D4F8A811 		ldr	r1, [r4, #424]
+ 333              		.loc 1 139 64 view .LVU113
+ 334 0072 C969     		ldr	r1, [r1, #28]	@ unaligned
+ 335              		.loc 1 139 72 view .LVU114
+ 336 0074 A1F52071 		sub	r1, r1, #640
+ 337              		.loc 1 139 9 view .LVU115
+ 338 0078 22F81130 		strh	r3, [r2, r1, lsl #1]	@ unaligned
+ 140:modules/motor/LKmotor/LK9025.c **** 
+ 141:modules/motor/LKmotor/LK9025.c ****         if (motor->stop_flag == MOTOR_STOP)
+ 339              		.loc 1 141 9 is_stmt 1 view .LVU116
+ 340              		.loc 1 141 18 is_stmt 0 view .LVU117
+ 341 007c 94F8A431 		ldrb	r3, [r4, #420]	@ zero_extendqisi2
+ 342              	.LVL19:
+ 343              		.loc 1 141 12 view .LVU118
+ 344 0080 002B     		cmp	r3, #0
+ 345 0082 43D0     		beq	.L25
+ 346              	.L18:
+ 101:modules/motor/LKmotor/LK9025.c ****     {
+ 347              		.loc 1 101 33 is_stmt 1 discriminator 2 view .LVU119
+ 348 0084 0135     		adds	r5, r5, #1
+ 349              	.LVL20:
+ 350              	.L9:
+ 101:modules/motor/LKmotor/LK9025.c ****     {
+ 351              		.loc 1 101 24 discriminator 1 view .LVU120
+ 101:modules/motor/LKmotor/LK9025.c ****     {
+ 352              		.loc 1 101 26 is_stmt 0 discriminator 1 view .LVU121
+ 353 0086 2B4B     		ldr	r3, .L30+4
+ 354 0088 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 101:modules/motor/LKmotor/LK9025.c ****     {
+ 355              		.loc 1 101 5 discriminator 1 view .LVU122
+ 356 008a AB42     		cmp	r3, r5
+ 357 008c 47D9     		bls	.L26
+ 103:modules/motor/LKmotor/LK9025.c ****         measure = &motor->measure;
+ 358              		.loc 1 103 9 is_stmt 1 view .LVU123
+ 103:modules/motor/LKmotor/LK9025.c ****         measure = &motor->measure;
+ 359              		.loc 1 103 15 is_stmt 0 view .LVU124
+ 360 008e 2A4B     		ldr	r3, .L30+8
+ 361 0090 53F82540 		ldr	r4, [r3, r5, lsl #2]
+ 362              	.LVL21:
+ 104:modules/motor/LKmotor/LK9025.c ****         setting = &motor->motor_settings;
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 11
+
+
+ 363              		.loc 1 104 9 is_stmt 1 view .LVU125
+ 105:modules/motor/LKmotor/LK9025.c ****         pid_ref = motor->pid_ref;
+ 364              		.loc 1 105 9 view .LVU126
+ 106:modules/motor/LKmotor/LK9025.c **** 
+ 365              		.loc 1 106 9 view .LVU127
+ 106:modules/motor/LKmotor/LK9025.c **** 
+ 366              		.loc 1 106 17 is_stmt 0 view .LVU128
+ 367 0094 D4ED680A 		vldr.32	s1, [r4, #416]
+ 368              	.LVL22:
+ 108:modules/motor/LKmotor/LK9025.c ****         {
+ 369              		.loc 1 108 9 is_stmt 1 view .LVU129
+ 108:modules/motor/LKmotor/LK9025.c ****         {
+ 370              		.loc 1 108 21 is_stmt 0 view .LVU130
+ 371 0098 94F82130 		ldrb	r3, [r4, #33]	@ zero_extendqisi2
+ 108:modules/motor/LKmotor/LK9025.c ****         {
+ 372              		.loc 1 108 12 view .LVU131
+ 373 009c 13F0040F 		tst	r3, #4
+ 374 00a0 03D0     		beq	.L10
+ 108:modules/motor/LKmotor/LK9025.c ****         {
+ 375              		.loc 1 108 63 discriminator 1 view .LVU132
+ 376 00a2 94F82030 		ldrb	r3, [r4, #32]	@ zero_extendqisi2
+ 108:modules/motor/LKmotor/LK9025.c ****         {
+ 377              		.loc 1 108 53 discriminator 1 view .LVU133
+ 378 00a6 042B     		cmp	r3, #4
+ 379 00a8 ADD0     		beq	.L27
+ 380              	.L10:
+ 119:modules/motor/LKmotor/LK9025.c ****         {
+ 381              		.loc 1 119 9 is_stmt 1 view .LVU134
+ 119:modules/motor/LKmotor/LK9025.c ****         {
+ 382              		.loc 1 119 21 is_stmt 0 view .LVU135
+ 383 00aa 94F82130 		ldrb	r3, [r4, #33]	@ zero_extendqisi2
+ 119:modules/motor/LKmotor/LK9025.c ****         {
+ 384              		.loc 1 119 12 view .LVU136
+ 385 00ae 13F0020F 		tst	r3, #2
+ 386 00b2 CBD0     		beq	.L13
+ 119:modules/motor/LKmotor/LK9025.c ****         {
+ 387              		.loc 1 119 63 discriminator 1 view .LVU137
+ 388 00b4 94F82030 		ldrb	r3, [r4, #32]	@ zero_extendqisi2
+ 119:modules/motor/LKmotor/LK9025.c ****         {
+ 389              		.loc 1 119 53 discriminator 1 view .LVU138
+ 390 00b8 13F0060F 		tst	r3, #6
+ 391 00bc C6D0     		beq	.L13
+ 121:modules/motor/LKmotor/LK9025.c ****                 pid_measure = *motor->other_speed_feedback_ptr;
+ 392              		.loc 1 121 13 is_stmt 1 view .LVU139
+ 121:modules/motor/LKmotor/LK9025.c ****                 pid_measure = *motor->other_speed_feedback_ptr;
+ 393              		.loc 1 121 24 is_stmt 0 view .LVU140
+ 394 00be 94F82430 		ldrb	r3, [r4, #36]	@ zero_extendqisi2
+ 121:modules/motor/LKmotor/LK9025.c ****                 pid_measure = *motor->other_speed_feedback_ptr;
+ 395              		.loc 1 121 16 view .LVU141
+ 396 00c2 012B     		cmp	r3, #1
+ 397 00c4 BED0     		beq	.L28
+ 124:modules/motor/LKmotor/LK9025.c ****             pid_ref = PIDCalculate(&motor->angle_PID, pid_measure, pid_ref);
+ 398              		.loc 1 124 17 is_stmt 1 view .LVU142
+ 124:modules/motor/LKmotor/LK9025.c ****             pid_ref = PIDCalculate(&motor->angle_PID, pid_measure, pid_ref);
+ 399              		.loc 1 124 29 is_stmt 0 view .LVU143
+ 400 00c6 94ED020A 		vldr.32	s0, [r4, #8]
+ 401              	.LVL23:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 12
+
+
+ 402              	.L15:
+ 125:modules/motor/LKmotor/LK9025.c ****             if (setting->feedforward_flag & CURRENT_FEEDFORWARD)
+ 403              		.loc 1 125 13 is_stmt 1 view .LVU144
+ 125:modules/motor/LKmotor/LK9025.c ****             if (setting->feedforward_flag & CURRENT_FEEDFORWARD)
+ 404              		.loc 1 125 23 is_stmt 0 view .LVU145
+ 405 00ca 04F59470 		add	r0, r4, #296
+ 406 00ce FFF7FEFF 		bl	PIDCalculate
+ 407              	.LVL24:
+ 125:modules/motor/LKmotor/LK9025.c ****             if (setting->feedforward_flag & CURRENT_FEEDFORWARD)
+ 408              		.loc 1 125 23 view .LVU146
+ 409 00d2 F0EE400A 		vmov.f32	s1, s0
+ 410              	.LVL25:
+ 126:modules/motor/LKmotor/LK9025.c ****                 pid_ref += *motor->current_feedforward_ptr;
+ 411              		.loc 1 126 13 is_stmt 1 view .LVU147
+ 126:modules/motor/LKmotor/LK9025.c ****                 pid_ref += *motor->current_feedforward_ptr;
+ 412              		.loc 1 126 24 is_stmt 0 view .LVU148
+ 413 00d6 94F82630 		ldrb	r3, [r4, #38]	@ zero_extendqisi2
+ 126:modules/motor/LKmotor/LK9025.c ****                 pid_ref += *motor->current_feedforward_ptr;
+ 414              		.loc 1 126 16 view .LVU149
+ 415 00da 13F0010F 		tst	r3, #1
+ 416 00de B5D0     		beq	.L13
+ 127:modules/motor/LKmotor/LK9025.c ****         }
+ 417              		.loc 1 127 17 is_stmt 1 view .LVU150
+ 127:modules/motor/LKmotor/LK9025.c ****         }
+ 418              		.loc 1 127 34 is_stmt 0 view .LVU151
+ 419 00e0 636B     		ldr	r3, [r4, #52]
+ 127:modules/motor/LKmotor/LK9025.c ****         }
+ 420              		.loc 1 127 28 view .LVU152
+ 421 00e2 D3ED007A 		vldr.32	s15, [r3]
+ 127:modules/motor/LKmotor/LK9025.c ****         }
+ 422              		.loc 1 127 25 view .LVU153
+ 423 00e6 70EE270A 		vadd.f32	s1, s0, s15
+ 424              	.LVL26:
+ 127:modules/motor/LKmotor/LK9025.c ****         }
+ 425              		.loc 1 127 25 view .LVU154
+ 426 00ea AFE7     		b	.L13
+ 427              	.L23:
+ 132:modules/motor/LKmotor/LK9025.c ****         }
+ 428              		.loc 1 132 13 is_stmt 1 view .LVU155
+ 132:modules/motor/LKmotor/LK9025.c ****         }
+ 429              		.loc 1 132 64 is_stmt 0 view .LVU156
+ 430 00ec B4F90C30 		ldrsh	r3, [r4, #12]
+ 431 00f0 00EE103A 		vmov	s0, r3	@ int
+ 132:modules/motor/LKmotor/LK9025.c ****         }
+ 432              		.loc 1 132 23 view .LVU157
+ 433 00f4 B8EEC00A 		vcvt.f32.s32	s0, s0
+ 434 00f8 04F13800 		add	r0, r4, #56
+ 435 00fc FFF7FEFF 		bl	PIDCalculate
+ 436              	.LVL27:
+ 132:modules/motor/LKmotor/LK9025.c ****         }
+ 437              		.loc 1 132 23 view .LVU158
+ 438 0100 F0EE400A 		vmov.f32	s1, s0
+ 439              	.LVL28:
+ 132:modules/motor/LKmotor/LK9025.c ****         }
+ 440              		.loc 1 132 23 view .LVU159
+ 441 0104 A7E7     		b	.L16
+ 442              	.LVL29:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 13
+
+
+ 443              	.L24:
+ 137:modules/motor/LKmotor/LK9025.c ****         // 这里随便写的,为了兼容多电机命令.后续应该将tx_id以更好的方式表
+ 444              		.loc 1 137 13 is_stmt 1 view .LVU160
+ 137:modules/motor/LKmotor/LK9025.c ****         // 这里随便写的,为了兼容多电机命令.后续应该将tx_id以更好的方式表
+ 445              		.loc 1 137 17 is_stmt 0 view .LVU161
+ 446 0106 5B42     		rsbs	r3, r3, #0
+ 447              	.LVL30:
+ 137:modules/motor/LKmotor/LK9025.c ****         // 这里随便写的,为了兼容多电机命令.后续应该将tx_id以更好的方式表
+ 448              		.loc 1 137 17 view .LVU162
+ 449 0108 1BB2     		sxth	r3, r3
+ 450              	.LVL31:
+ 137:modules/motor/LKmotor/LK9025.c ****         // 这里随便写的,为了兼容多电机命令.后续应该将tx_id以更好的方式表
+ 451              		.loc 1 137 17 view .LVU163
+ 452 010a ADE7     		b	.L17
+ 453              	.LVL32:
+ 454              	.L25:
+ 142:modules/motor/LKmotor/LK9025.c ****         { // 若该电机处于停止状态,直接将发送buff置零
+ 143:modules/motor/LKmotor/LK9025.c ****             memset(sender_instance->tx_buff + (motor->motor_can_ins->tx_id - 0x280) * 2, 0, sizeof(
+ 455              		.loc 1 143 13 is_stmt 1 view .LVU164
+ 456              		.loc 1 143 53 is_stmt 0 view .LVU165
+ 457 010c D4F8A831 		ldr	r3, [r4, #424]
+ 458              		.loc 1 143 68 view .LVU166
+ 459 0110 DB69     		ldr	r3, [r3, #28]	@ unaligned
+ 460              		.loc 1 143 76 view .LVU167
+ 461 0112 A3F52073 		sub	r3, r3, #640
+ 462              		.loc 1 143 13 view .LVU168
+ 463 0116 0021     		movs	r1, #0
+ 464 0118 22F81310 		strh	r1, [r2, r3, lsl #1]	@ unaligned
+ 465 011c B2E7     		b	.L18
+ 466              	.LVL33:
+ 467              	.L26:
+ 468              		.loc 1 143 13 view .LVU169
+ 469              	.LBE2:
+ 144:modules/motor/LKmotor/LK9025.c ****         }
+ 145:modules/motor/LKmotor/LK9025.c ****     }
+ 146:modules/motor/LKmotor/LK9025.c **** 
+ 147:modules/motor/LKmotor/LK9025.c ****     if (idx) // 如果有电机注册了
+ 470              		.loc 1 147 5 is_stmt 1 view .LVU170
+ 471              		.loc 1 147 8 is_stmt 0 view .LVU171
+ 472 011e 03B9     		cbnz	r3, .L29
+ 473              	.L8:
+ 148:modules/motor/LKmotor/LK9025.c ****         CANTransmit(sender_instance, 0.2);
+ 149:modules/motor/LKmotor/LK9025.c **** }
+ 474              		.loc 1 149 1 view .LVU172
+ 475 0120 38BD     		pop	{r3, r4, r5, pc}
+ 476              	.LVL34:
+ 477              	.L29:
+ 148:modules/motor/LKmotor/LK9025.c ****         CANTransmit(sender_instance, 0.2);
+ 478              		.loc 1 148 9 is_stmt 1 view .LVU173
+ 479 0122 9FED060A 		vldr.32	s0, .L30+12
+ 480 0126 024B     		ldr	r3, .L30
+ 481 0128 1868     		ldr	r0, [r3]
+ 482 012a FFF7FEFF 		bl	CANTransmit
+ 483              	.LVL35:
+ 484              		.loc 1 149 1 is_stmt 0 view .LVU174
+ 485 012e F7E7     		b	.L8
+ 486              	.L31:
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 14
+
+
+ 487              		.align	2
+ 488              	.L30:
+ 489 0130 00000000 		.word	.LANCHOR1
+ 490 0134 00000000 		.word	.LANCHOR2
+ 491 0138 00000000 		.word	.LANCHOR0
+ 492 013c CDCC4C3E 		.word	1045220557
+ 493              		.cfi_endproc
+ 494              	.LFE274:
+ 496              		.section	.text.LKMotorStop,"ax",%progbits
+ 497              		.align	1
+ 498              		.global	LKMotorStop
+ 499              		.syntax unified
+ 500              		.thumb
+ 501              		.thumb_func
+ 503              	LKMotorStop:
+ 504              	.LVL36:
+ 505              	.LFB275:
+ 150:modules/motor/LKmotor/LK9025.c **** 
+ 151:modules/motor/LKmotor/LK9025.c **** void LKMotorStop(LKMotorInstance *motor)
+ 152:modules/motor/LKmotor/LK9025.c **** {
+ 506              		.loc 1 152 1 is_stmt 1 view -0
+ 507              		.cfi_startproc
+ 508              		@ args = 0, pretend = 0, frame = 0
+ 509              		@ frame_needed = 0, uses_anonymous_args = 0
+ 510              		@ link register save eliminated.
+ 153:modules/motor/LKmotor/LK9025.c ****     motor->stop_flag = MOTOR_STOP;
+ 511              		.loc 1 153 5 view .LVU176
+ 512              		.loc 1 153 22 is_stmt 0 view .LVU177
+ 513 0000 0023     		movs	r3, #0
+ 514 0002 80F8A431 		strb	r3, [r0, #420]
+ 154:modules/motor/LKmotor/LK9025.c **** }
+ 515              		.loc 1 154 1 view .LVU178
+ 516 0006 7047     		bx	lr
+ 517              		.cfi_endproc
+ 518              	.LFE275:
+ 520              		.section	.text.LKMotorEnable,"ax",%progbits
+ 521              		.align	1
+ 522              		.global	LKMotorEnable
+ 523              		.syntax unified
+ 524              		.thumb
+ 525              		.thumb_func
+ 527              	LKMotorEnable:
+ 528              	.LVL37:
+ 529              	.LFB276:
+ 155:modules/motor/LKmotor/LK9025.c **** 
+ 156:modules/motor/LKmotor/LK9025.c **** void LKMotorEnable(LKMotorInstance *motor)
+ 157:modules/motor/LKmotor/LK9025.c **** {
+ 530              		.loc 1 157 1 is_stmt 1 view -0
+ 531              		.cfi_startproc
+ 532              		@ args = 0, pretend = 0, frame = 0
+ 533              		@ frame_needed = 0, uses_anonymous_args = 0
+ 534              		@ link register save eliminated.
+ 158:modules/motor/LKmotor/LK9025.c ****     motor->stop_flag = MOTOR_ENALBED;
+ 535              		.loc 1 158 5 view .LVU180
+ 536              		.loc 1 158 22 is_stmt 0 view .LVU181
+ 537 0000 0123     		movs	r3, #1
+ 538 0002 80F8A431 		strb	r3, [r0, #420]
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 15
+
+
+ 159:modules/motor/LKmotor/LK9025.c **** }
+ 539              		.loc 1 159 1 view .LVU182
+ 540 0006 7047     		bx	lr
+ 541              		.cfi_endproc
+ 542              	.LFE276:
+ 544              		.section	.text.LKMotorInit,"ax",%progbits
+ 545              		.align	1
+ 546              		.global	LKMotorInit
+ 547              		.syntax unified
+ 548              		.thumb
+ 549              		.thumb_func
+ 551              	LKMotorInit:
+ 552              	.LVL38:
+ 553              	.LFB273:
+  54:modules/motor/LKmotor/LK9025.c ****     LKMotorInstance *motor = (LKMotorInstance *)malloc(sizeof(LKMotorInstance));
+ 554              		.loc 1 54 1 is_stmt 1 view -0
+ 555              		.cfi_startproc
+ 556              		@ args = 0, pretend = 0, frame = 16
+ 557              		@ frame_needed = 0, uses_anonymous_args = 0
+  54:modules/motor/LKmotor/LK9025.c ****     LKMotorInstance *motor = (LKMotorInstance *)malloc(sizeof(LKMotorInstance));
+ 558              		.loc 1 54 1 is_stmt 0 view .LVU184
+ 559 0000 30B5     		push	{r4, r5, lr}
+ 560              	.LCFI2:
+ 561              		.cfi_def_cfa_offset 12
+ 562              		.cfi_offset 4, -12
+ 563              		.cfi_offset 5, -8
+ 564              		.cfi_offset 14, -4
+ 565 0002 85B0     		sub	sp, sp, #20
+ 566              	.LCFI3:
+ 567              		.cfi_def_cfa_offset 32
+ 568 0004 0546     		mov	r5, r0
+  55:modules/motor/LKmotor/LK9025.c ****     motor = (LKMotorInstance *)malloc(sizeof(LKMotorInstance));
+ 569              		.loc 1 55 5 is_stmt 1 view .LVU185
+  56:modules/motor/LKmotor/LK9025.c ****     memset(motor, 0, sizeof(LKMotorInstance));
+ 570              		.loc 1 56 5 view .LVU186
+  56:modules/motor/LKmotor/LK9025.c ****     memset(motor, 0, sizeof(LKMotorInstance));
+ 571              		.loc 1 56 32 is_stmt 0 view .LVU187
+ 572 0006 4FF4D870 		mov	r0, #432
+ 573              	.LVL39:
+  56:modules/motor/LKmotor/LK9025.c ****     memset(motor, 0, sizeof(LKMotorInstance));
+ 574              		.loc 1 56 32 view .LVU188
+ 575 000a FFF7FEFF 		bl	malloc
+ 576              	.LVL40:
+ 577 000e 0446     		mov	r4, r0
+ 578              	.LVL41:
+  57:modules/motor/LKmotor/LK9025.c **** 
+ 579              		.loc 1 57 5 is_stmt 1 view .LVU189
+ 580 0010 4FF4D872 		mov	r2, #432
+ 581 0014 0021     		movs	r1, #0
+ 582 0016 FFF7FEFF 		bl	memset
+ 583              	.LVL42:
+  59:modules/motor/LKmotor/LK9025.c ****     PIDInit(&motor->current_PID, &config->controller_param_init_config.current_PID);
+ 584              		.loc 1 59 5 view .LVU190
+  59:modules/motor/LKmotor/LK9025.c ****     PIDInit(&motor->current_PID, &config->controller_param_init_config.current_PID);
+ 585              		.loc 1 59 27 is_stmt 0 view .LVU191
+ 586 001a 05F19403 		add	r3, r5, #148
+ 587 001e 93E80300 		ldm	r3, {r0, r1}
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 16
+
+
+ 588 0022 2062     		str	r0, [r4, #32]
+ 589 0024 A184     		strh	r1, [r4, #36]	@ movhi
+ 590 0026 090C     		lsrs	r1, r1, #16
+ 591 0028 84F82610 		strb	r1, [r4, #38]
+  60:modules/motor/LKmotor/LK9025.c ****     PIDInit(&motor->speed_PID, &config->controller_param_init_config.speed_PID);
+ 592              		.loc 1 60 5 is_stmt 1 view .LVU192
+ 593 002c 05F11001 		add	r1, r5, #16
+ 594 0030 04F13800 		add	r0, r4, #56
+ 595 0034 FFF7FEFF 		bl	PIDInit
+ 596              	.LVL43:
+  61:modules/motor/LKmotor/LK9025.c ****     PIDInit(&motor->angle_PID, &config->controller_param_init_config.angle_PID);
+ 597              		.loc 1 61 5 view .LVU193
+ 598 0038 05F13C01 		add	r1, r5, #60
+ 599 003c 04F1B000 		add	r0, r4, #176
+ 600 0040 FFF7FEFF 		bl	PIDInit
+ 601              	.LVL44:
+  62:modules/motor/LKmotor/LK9025.c ****     motor->other_angle_feedback_ptr = config->controller_param_init_config.other_angle_feedback_ptr
+ 602              		.loc 1 62 5 view .LVU194
+ 603 0044 05F16801 		add	r1, r5, #104
+ 604 0048 04F59470 		add	r0, r4, #296
+ 605 004c FFF7FEFF 		bl	PIDInit
+ 606              	.LVL45:
+  63:modules/motor/LKmotor/LK9025.c ****     motor->other_speed_feedback_ptr = config->controller_param_init_config.other_speed_feedback_ptr
+ 607              		.loc 1 63 5 view .LVU195
+  63:modules/motor/LKmotor/LK9025.c ****     motor->other_speed_feedback_ptr = config->controller_param_init_config.other_speed_feedback_ptr
+ 608              		.loc 1 63 75 is_stmt 0 view .LVU196
+ 609 0050 2B68     		ldr	r3, [r5]
+  63:modules/motor/LKmotor/LK9025.c ****     motor->other_speed_feedback_ptr = config->controller_param_init_config.other_speed_feedback_ptr
+ 610              		.loc 1 63 37 view .LVU197
+ 611 0052 A362     		str	r3, [r4, #40]
+  64:modules/motor/LKmotor/LK9025.c **** 
+ 612              		.loc 1 64 5 is_stmt 1 view .LVU198
+  64:modules/motor/LKmotor/LK9025.c **** 
+ 613              		.loc 1 64 75 is_stmt 0 view .LVU199
+ 614 0054 6B68     		ldr	r3, [r5, #4]
+  64:modules/motor/LKmotor/LK9025.c **** 
+ 615              		.loc 1 64 37 view .LVU200
+ 616 0056 E362     		str	r3, [r4, #44]
+  66:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.can_module_callback = LKMotorDecode;
+ 617              		.loc 1 66 5 is_stmt 1 view .LVU201
+  66:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.can_module_callback = LKMotorDecode;
+ 618              		.loc 1 66 32 is_stmt 0 view .LVU202
+ 619 0058 C5F8AC40 		str	r4, [r5, #172]
+  67:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.rx_id = 0x140 + config->can_init_config.tx_id;
+ 620              		.loc 1 67 5 is_stmt 1 view .LVU203
+  67:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.rx_id = 0x140 + config->can_init_config.tx_id;
+ 621              		.loc 1 67 49 is_stmt 0 view .LVU204
+ 622 005c 1F4B     		ldr	r3, .L37
+ 623 005e C5F8A830 		str	r3, [r5, #168]
+  68:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.tx_id = config->can_init_config.tx_id + 0x280 - 1; // 这样在发送�
+ 624              		.loc 1 68 5 is_stmt 1 view .LVU205
+  68:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.tx_id = config->can_init_config.tx_id + 0x280 - 1; // 这样在发送�
+ 625              		.loc 1 68 68 is_stmt 0 view .LVU206
+ 626 0062 D5F8A030 		ldr	r3, [r5, #160]
+  68:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.tx_id = config->can_init_config.tx_id + 0x280 - 1; // 这样在发送�
+ 627              		.loc 1 68 43 view .LVU207
+ 628 0066 03F5A072 		add	r2, r3, #320
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 17
+
+
+  68:modules/motor/LKmotor/LK9025.c ****     config->can_init_config.tx_id = config->can_init_config.tx_id + 0x280 - 1; // 这样在发送�
+ 629              		.loc 1 68 35 view .LVU208
+ 630 006a C5F8A420 		str	r2, [r5, #164]
+  69:modules/motor/LKmotor/LK9025.c ****     motor->motor_can_ins = CANRegister(&config->can_init_config);
+ 631              		.loc 1 69 5 is_stmt 1 view .LVU209
+  69:modules/motor/LKmotor/LK9025.c ****     motor->motor_can_ins = CANRegister(&config->can_init_config);
+ 632              		.loc 1 69 75 is_stmt 0 view .LVU210
+ 633 006e 03F27F23 		addw	r3, r3, #639
+  69:modules/motor/LKmotor/LK9025.c ****     motor->motor_can_ins = CANRegister(&config->can_init_config);
+ 634              		.loc 1 69 35 view .LVU211
+ 635 0072 C5F8A030 		str	r3, [r5, #160]
+  70:modules/motor/LKmotor/LK9025.c **** 
+ 636              		.loc 1 70 5 is_stmt 1 view .LVU212
+  70:modules/motor/LKmotor/LK9025.c **** 
+ 637              		.loc 1 70 28 is_stmt 0 view .LVU213
+ 638 0076 05F19C00 		add	r0, r5, #156
+ 639 007a FFF7FEFF 		bl	CANRegister
+ 640              	.LVL46:
+  70:modules/motor/LKmotor/LK9025.c **** 
+ 641              		.loc 1 70 26 view .LVU214
+ 642 007e C4F8A801 		str	r0, [r4, #424]
+  72:modules/motor/LKmotor/LK9025.c ****     {
+ 643              		.loc 1 72 5 is_stmt 1 view .LVU215
+  72:modules/motor/LKmotor/LK9025.c ****     {
+ 644              		.loc 1 72 13 is_stmt 0 view .LVU216
+ 645 0082 174B     		ldr	r3, .L37+4
+ 646 0084 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+  72:modules/motor/LKmotor/LK9025.c ****     {
+ 647              		.loc 1 72 8 view .LVU217
+ 648 0086 4BB9     		cbnz	r3, .L35
+  74:modules/motor/LKmotor/LK9025.c ****         sender_instance->tx_id = 0x280; //  修改tx_id为0x280,用于多电机发送,不用管其�
+ 649              		.loc 1 74 9 is_stmt 1 view .LVU218
+  74:modules/motor/LKmotor/LK9025.c ****         sender_instance->tx_id = 0x280; //  修改tx_id为0x280,用于多电机发送,不用管其�
+ 650              		.loc 1 74 25 is_stmt 0 view .LVU219
+ 651 0088 164B     		ldr	r3, .L37+8
+ 652 008a 1860     		str	r0, [r3]
+  75:modules/motor/LKmotor/LK9025.c ****     }
+ 653              		.loc 1 75 9 is_stmt 1 view .LVU220
+  75:modules/motor/LKmotor/LK9025.c ****     }
+ 654              		.loc 1 75 32 is_stmt 0 view .LVU221
+ 655 008c 0023     		movs	r3, #0
+ 656 008e 6FF07F02 		mvn	r2, #127
+ 657 0092 0277     		strb	r2, [r0, #28]
+ 658 0094 0222     		movs	r2, #2
+ 659 0096 4277     		strb	r2, [r0, #29]
+ 660 0098 8377     		strb	r3, [r0, #30]
+ 661 009a C377     		strb	r3, [r0, #31]
+ 662              	.L35:
+  78:modules/motor/LKmotor/LK9025.c ****     DWT_GetDeltaT(&motor->measure.feed_dwt_cnt);
+ 663              		.loc 1 78 5 is_stmt 1 view .LVU222
+ 664 009c 2046     		mov	r0, r4
+ 665 009e FFF7FEFF 		bl	LKMotorEnable
+ 666              	.LVL47:
+  79:modules/motor/LKmotor/LK9025.c ****     lkmotor_instance[idx++] = motor;
+ 667              		.loc 1 79 5 view .LVU223
+ 668 00a2 04F11C00 		add	r0, r4, #28
+ 669 00a6 FFF7FEFF 		bl	DWT_GetDeltaT
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 18
+
+
+ 670              	.LVL48:
+  80:modules/motor/LKmotor/LK9025.c **** 
+ 671              		.loc 1 80 5 view .LVU224
+  80:modules/motor/LKmotor/LK9025.c **** 
+ 672              		.loc 1 80 25 is_stmt 0 view .LVU225
+ 673 00aa 0D4A     		ldr	r2, .L37+4
+ 674 00ac 1378     		ldrb	r3, [r2]	@ zero_extendqisi2
+ 675 00ae 591C     		adds	r1, r3, #1
+ 676 00b0 1170     		strb	r1, [r2]
+  80:modules/motor/LKmotor/LK9025.c **** 
+ 677              		.loc 1 80 29 view .LVU226
+ 678 00b2 0D4A     		ldr	r2, .L37+12
+ 679 00b4 42F82340 		str	r4, [r2, r3, lsl #2]
+  82:modules/motor/LKmotor/LK9025.c ****         .callback = LKMotorLostCallback,
+ 680              		.loc 1 82 5 is_stmt 1 view .LVU227
+  82:modules/motor/LKmotor/LK9025.c ****         .callback = LKMotorLostCallback,
+ 681              		.loc 1 82 26 is_stmt 0 view .LVU228
+ 682 00b8 0023     		movs	r3, #0
+ 683 00ba 0193     		str	r3, [sp, #4]
+ 684 00bc 0293     		str	r3, [sp, #8]
+ 685 00be 0393     		str	r3, [sp, #12]
+ 686 00c0 0523     		movs	r3, #5
+ 687 00c2 ADF80430 		strh	r3, [sp, #4]	@ movhi
+ 688 00c6 094B     		ldr	r3, .L37+16
+ 689 00c8 0293     		str	r3, [sp, #8]
+ 690 00ca 0394     		str	r4, [sp, #12]
+  87:modules/motor/LKmotor/LK9025.c **** 
+ 691              		.loc 1 87 5 is_stmt 1 view .LVU229
+  87:modules/motor/LKmotor/LK9025.c **** 
+ 692              		.loc 1 87 21 is_stmt 0 view .LVU230
+ 693 00cc 01A8     		add	r0, sp, #4
+ 694 00ce FFF7FEFF 		bl	DaemonRegister
+ 695              	.LVL49:
+  87:modules/motor/LKmotor/LK9025.c **** 
+ 696              		.loc 1 87 19 view .LVU231
+ 697 00d2 C4F8AC01 		str	r0, [r4, #428]
+  89:modules/motor/LKmotor/LK9025.c **** }
+ 698              		.loc 1 89 5 is_stmt 1 view .LVU232
+  90:modules/motor/LKmotor/LK9025.c **** 
+ 699              		.loc 1 90 1 is_stmt 0 view .LVU233
+ 700 00d6 2046     		mov	r0, r4
+ 701 00d8 05B0     		add	sp, sp, #20
+ 702              	.LCFI4:
+ 703              		.cfi_def_cfa_offset 12
+ 704              		@ sp needed
+ 705 00da 30BD     		pop	{r4, r5, pc}
+ 706              	.LVL50:
+ 707              	.L38:
+  90:modules/motor/LKmotor/LK9025.c **** 
+ 708              		.loc 1 90 1 view .LVU234
+ 709              		.align	2
+ 710              	.L37:
+ 711 00dc 00000000 		.word	LKMotorDecode
+ 712 00e0 00000000 		.word	.LANCHOR2
+ 713 00e4 00000000 		.word	.LANCHOR1
+ 714 00e8 00000000 		.word	.LANCHOR0
+ 715 00ec 00000000 		.word	LKMotorLostCallback
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 19
+
+
+ 716              		.cfi_endproc
+ 717              	.LFE273:
+ 719              		.section	.text.LKMotorSetRef,"ax",%progbits
+ 720              		.align	1
+ 721              		.global	LKMotorSetRef
+ 722              		.syntax unified
+ 723              		.thumb
+ 724              		.thumb_func
+ 726              	LKMotorSetRef:
+ 727              	.LVL51:
+ 728              	.LFB277:
+ 160:modules/motor/LKmotor/LK9025.c **** 
+ 161:modules/motor/LKmotor/LK9025.c **** void LKMotorSetRef(LKMotorInstance *motor, float ref)
+ 162:modules/motor/LKmotor/LK9025.c **** {
+ 729              		.loc 1 162 1 is_stmt 1 view -0
+ 730              		.cfi_startproc
+ 731              		@ args = 0, pretend = 0, frame = 0
+ 732              		@ frame_needed = 0, uses_anonymous_args = 0
+ 733              		@ link register save eliminated.
+ 163:modules/motor/LKmotor/LK9025.c ****     motor->pid_ref = ref;
+ 734              		.loc 1 163 5 view .LVU236
+ 735              		.loc 1 163 20 is_stmt 0 view .LVU237
+ 736 0000 80ED680A 		vstr.32	s0, [r0, #416]
+ 164:modules/motor/LKmotor/LK9025.c **** }
+ 737              		.loc 1 164 1 view .LVU238
+ 738 0004 7047     		bx	lr
+ 739              		.cfi_endproc
+ 740              	.LFE277:
+ 742              		.section	.text.LKMotorIsOnline,"ax",%progbits
+ 743              		.align	1
+ 744              		.global	LKMotorIsOnline
+ 745              		.syntax unified
+ 746              		.thumb
+ 747              		.thumb_func
+ 749              	LKMotorIsOnline:
+ 750              	.LVL52:
+ 751              	.LFB278:
+ 165:modules/motor/LKmotor/LK9025.c **** 
+ 166:modules/motor/LKmotor/LK9025.c **** uint8_t LKMotorIsOnline(LKMotorInstance *motor)
+ 167:modules/motor/LKmotor/LK9025.c **** {
+ 752              		.loc 1 167 1 is_stmt 1 view -0
+ 753              		.cfi_startproc
+ 754              		@ args = 0, pretend = 0, frame = 0
+ 755              		@ frame_needed = 0, uses_anonymous_args = 0
+ 756              		.loc 1 167 1 is_stmt 0 view .LVU240
+ 757 0000 08B5     		push	{r3, lr}
+ 758              	.LCFI5:
+ 759              		.cfi_def_cfa_offset 8
+ 760              		.cfi_offset 3, -8
+ 761              		.cfi_offset 14, -4
+ 168:modules/motor/LKmotor/LK9025.c ****     return DaemonIsOnline(motor->daemon);
+ 762              		.loc 1 168 5 is_stmt 1 view .LVU241
+ 763              		.loc 1 168 12 is_stmt 0 view .LVU242
+ 764 0002 D0F8AC01 		ldr	r0, [r0, #428]
+ 765              	.LVL53:
+ 766              		.loc 1 168 12 view .LVU243
+ 767 0006 FFF7FEFF 		bl	DaemonIsOnline
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 20
+
+
+ 768              	.LVL54:
+ 169:modules/motor/LKmotor/LK9025.c **** }
+ 769              		.loc 1 169 1 view .LVU244
+ 770 000a 08BD     		pop	{r3, pc}
+ 771              		.cfi_endproc
+ 772              	.LFE278:
+ 774              		.section	.bss.idx,"aw",%nobits
+ 775              		.set	.LANCHOR2,. + 0
+ 778              	idx:
+ 779 0000 00       		.space	1
+ 780              		.section	.bss.lkmotor_instance,"aw",%nobits
+ 781              		.align	2
+ 782              		.set	.LANCHOR0,. + 0
+ 785              	lkmotor_instance:
+ 786 0000 00000000 		.space	16
+ 786      00000000 
+ 786      00000000 
+ 786      00000000 
+ 787              		.section	.bss.sender_instance,"aw",%nobits
+ 788              		.align	2
+ 789              		.set	.LANCHOR1,. + 0
+ 792              	sender_instance:
+ 793 0000 00000000 		.space	4
+ 794              		.text
+ 795              	.Letext0:
+ 796              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 797              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ 798              		.file 4 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h"
+ 799              		.file 5 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h"
+ 800              		.file 6 "c:\\installsoftware\\arm-gnu-toolchian\\lib\\gcc\\arm-none-eabi\\10.3.1\\include\\stddef.
+ 801              		.file 7 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_can.h"
+ 802              		.file 8 "bsp/can/bsp_can.h"
+ 803              		.file 9 "modules/algorithm/controller.h"
+ 804              		.file 10 "modules/motor/motor_def.h"
+ 805              		.file 11 "modules/daemon/daemon.h"
+ 806              		.file 12 "modules/motor/LKmotor/LK9025.h"
+ 807              		.file 13 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\stdlib.h"
+ 808              		.file 14 "bsp/dwt/bsp_dwt.h"
+ 809              		.file 15 "<built-in>"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s 			page 21
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 LK9025.c
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:20     .text.LKMotorLostCallback:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:25     .text.LKMotorLostCallback:00000000 LKMotorLostCallback
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:42     .text.LKMotorDecode:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:47     .text.LKMotorDecode:00000000 LKMotorDecode
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:201    .text.LKMotorDecode:000000f4 $d
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:210    .text.LKMotorControl:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:216    .text.LKMotorControl:00000000 LKMotorControl
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:489    .text.LKMotorControl:00000130 $d
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:497    .text.LKMotorStop:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:503    .text.LKMotorStop:00000000 LKMotorStop
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:521    .text.LKMotorEnable:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:527    .text.LKMotorEnable:00000000 LKMotorEnable
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:545    .text.LKMotorInit:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:551    .text.LKMotorInit:00000000 LKMotorInit
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:711    .text.LKMotorInit:000000dc $d
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:720    .text.LKMotorSetRef:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:726    .text.LKMotorSetRef:00000000 LKMotorSetRef
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:743    .text.LKMotorIsOnline:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:749    .text.LKMotorIsOnline:00000000 LKMotorIsOnline
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:778    .bss.idx:00000000 idx
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:779    .bss.idx:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:781    .bss.lkmotor_instance:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:785    .bss.lkmotor_instance:00000000 lkmotor_instance
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:788    .bss.sender_instance:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\ccZa6Yu9.s:792    .bss.sender_instance:00000000 sender_instance
+
+UNDEFINED SYMBOLS
+DaemonReload
+DWT_GetDeltaT
+PIDCalculate
+CANTransmit
+malloc
+memset
+PIDInit
+CANRegister
+DaemonRegister
+DaemonIsOnline

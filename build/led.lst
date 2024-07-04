@@ -1,0 +1,258 @@
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"led.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.LEDRegister,"ax",%progbits
+  20              		.align	1
+  21              		.global	LEDRegister
+  22              		.syntax unified
+  23              		.thumb
+  24              		.thumb_func
+  26              	LEDRegister:
+  27              	.LVL0:
+  28              	.LFB273:
+  29              		.file 1 "modules/led/led.c"
+   1:modules/led/led.c **** #include "led.h"
+   2:modules/led/led.c **** #include "stdlib.h"
+   3:modules/led/led.c **** #include "memory.h"
+   4:modules/led/led.c **** #include "user_lib.h"
+   5:modules/led/led.c **** 
+   6:modules/led/led.c **** static uint8_t idx;
+   7:modules/led/led.c **** static LEDInstance *bsp_led_ins[LED_MAX_NUM] = {NULL};
+   8:modules/led/led.c **** 
+   9:modules/led/led.c **** LEDInstance *LEDRegister(LED_Init_Config_s *led_config)
+  10:modules/led/led.c **** {
+  30              		.loc 1 10 1 view -0
+  31              		.cfi_startproc
+  32              		@ args = 0, pretend = 0, frame = 0
+  33              		@ frame_needed = 0, uses_anonymous_args = 0
+  34              		.loc 1 10 1 is_stmt 0 view .LVU1
+  35 0000 38B5     		push	{r3, r4, r5, lr}
+  36              	.LCFI0:
+  37              		.cfi_def_cfa_offset 16
+  38              		.cfi_offset 3, -16
+  39              		.cfi_offset 4, -12
+  40              		.cfi_offset 5, -8
+  41              		.cfi_offset 14, -4
+  42 0002 0546     		mov	r5, r0
+  11:modules/led/led.c ****     LEDInstance *led_ins = (LEDInstance *)zmalloc(sizeof(LEDInstance));
+  43              		.loc 1 11 5 is_stmt 1 view .LVU2
+  44              		.loc 1 11 43 is_stmt 0 view .LVU3
+  45 0004 0820     		movs	r0, #8
+  46              	.LVL1:
+  47              		.loc 1 11 43 view .LVU4
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s 			page 2
+
+
+  48 0006 FFF7FEFF 		bl	zmalloc
+  49              	.LVL2:
+  50 000a 0446     		mov	r4, r0
+  51              	.LVL3:
+  12:modules/led/led.c ****     // 剩下的值暂时都被置零
+  13:modules/led/led.c ****     led_ins->led_pwm = PWMRegister(&led_config->pwm_config);
+  52              		.loc 1 13 5 is_stmt 1 view .LVU5
+  53              		.loc 1 13 24 is_stmt 0 view .LVU6
+  54 000c 2846     		mov	r0, r5
+  55              	.LVL4:
+  56              		.loc 1 13 24 view .LVU7
+  57 000e FFF7FEFF 		bl	PWMRegister
+  58              	.LVL5:
+  59              		.loc 1 13 22 view .LVU8
+  60 0012 2060     		str	r0, [r4]
+  14:modules/led/led.c ****     led_ins->led_switch = led_config->init_swtich;
+  61              		.loc 1 14 5 is_stmt 1 view .LVU9
+  62              		.loc 1 14 37 is_stmt 0 view .LVU10
+  63 0014 2B7E     		ldrb	r3, [r5, #24]	@ zero_extendqisi2
+  64              		.loc 1 14 25 view .LVU11
+  65 0016 E371     		strb	r3, [r4, #7]
+  15:modules/led/led.c **** 
+  16:modules/led/led.c ****     bsp_led_ins[idx++] = led_ins;
+  66              		.loc 1 16 5 is_stmt 1 view .LVU12
+  67              		.loc 1 16 20 is_stmt 0 view .LVU13
+  68 0018 044A     		ldr	r2, .L3
+  69 001a 1378     		ldrb	r3, [r2]	@ zero_extendqisi2
+  70 001c 591C     		adds	r1, r3, #1
+  71 001e 1170     		strb	r1, [r2]
+  72              		.loc 1 16 24 view .LVU14
+  73 0020 034A     		ldr	r2, .L3+4
+  74 0022 42F82340 		str	r4, [r2, r3, lsl #2]
+  17:modules/led/led.c ****     return led_ins;
+  75              		.loc 1 17 5 is_stmt 1 view .LVU15
+  18:modules/led/led.c **** }
+  76              		.loc 1 18 1 is_stmt 0 view .LVU16
+  77 0026 2046     		mov	r0, r4
+  78 0028 38BD     		pop	{r3, r4, r5, pc}
+  79              	.LVL6:
+  80              	.L4:
+  81              		.loc 1 18 1 view .LVU17
+  82 002a 00BF     		.align	2
+  83              	.L3:
+  84 002c 00000000 		.word	.LANCHOR0
+  85 0030 00000000 		.word	.LANCHOR1
+  86              		.cfi_endproc
+  87              	.LFE273:
+  89              		.section	.text.LEDSet,"ax",%progbits
+  90              		.align	1
+  91              		.global	LEDSet
+  92              		.syntax unified
+  93              		.thumb
+  94              		.thumb_func
+  96              	LEDSet:
+  97              	.LVL7:
+  98              	.LFB274:
+  19:modules/led/led.c **** 
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s 			page 3
+
+
+  20:modules/led/led.c **** void LEDSet(LEDInstance *_led, uint8_t alpha, uint8_t color_value, uint8_t brightness)
+  21:modules/led/led.c **** {
+  99              		.loc 1 21 1 is_stmt 1 view -0
+ 100              		.cfi_startproc
+ 101              		@ args = 0, pretend = 0, frame = 0
+ 102              		@ frame_needed = 0, uses_anonymous_args = 0
+ 103              		@ link register save eliminated.
+  22:modules/led/led.c **** }
+ 104              		.loc 1 22 1 view .LVU19
+ 105 0000 7047     		bx	lr
+ 106              		.cfi_endproc
+ 107              	.LFE274:
+ 109              		.section	.text.LEDSwitch,"ax",%progbits
+ 110              		.align	1
+ 111              		.global	LEDSwitch
+ 112              		.syntax unified
+ 113              		.thumb
+ 114              		.thumb_func
+ 116              	LEDSwitch:
+ 117              	.LVL8:
+ 118              	.LFB275:
+  23:modules/led/led.c **** 
+  24:modules/led/led.c **** void LEDSwitch(LEDInstance *_led, uint8_t led_switch)
+  25:modules/led/led.c **** {
+ 119              		.loc 1 25 1 view -0
+ 120              		.cfi_startproc
+ 121              		@ args = 0, pretend = 0, frame = 0
+ 122              		@ frame_needed = 0, uses_anonymous_args = 0
+ 123              		@ link register save eliminated.
+  26:modules/led/led.c ****     if (led_switch == 1)
+ 124              		.loc 1 26 5 view .LVU21
+ 125              		.loc 1 26 8 is_stmt 0 view .LVU22
+ 126 0000 0129     		cmp	r1, #1
+ 127 0002 02D0     		beq	.L9
+  27:modules/led/led.c ****     {
+  28:modules/led/led.c ****         _led->led_switch = 1;
+  29:modules/led/led.c ****     }
+  30:modules/led/led.c ****     else
+  31:modules/led/led.c ****     {
+  32:modules/led/led.c ****         _led->led_switch = 0;
+ 128              		.loc 1 32 9 is_stmt 1 view .LVU23
+ 129              		.loc 1 32 26 is_stmt 0 view .LVU24
+ 130 0004 0023     		movs	r3, #0
+ 131 0006 C371     		strb	r3, [r0, #7]
+  33:modules/led/led.c ****         // PWMSetPeriod(_led,0);
+  34:modules/led/led.c ****     }
+  35:modules/led/led.c **** }
+ 132              		.loc 1 35 1 view .LVU25
+ 133 0008 7047     		bx	lr
+ 134              	.L9:
+  28:modules/led/led.c ****     }
+ 135              		.loc 1 28 9 is_stmt 1 view .LVU26
+  28:modules/led/led.c ****     }
+ 136              		.loc 1 28 26 is_stmt 0 view .LVU27
+ 137 000a 0123     		movs	r3, #1
+ 138 000c C371     		strb	r3, [r0, #7]
+ 139 000e 7047     		bx	lr
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s 			page 4
+
+
+ 140              		.cfi_endproc
+ 141              	.LFE275:
+ 143              		.section	.text.LEDShow,"ax",%progbits
+ 144              		.align	1
+ 145              		.global	LEDShow
+ 146              		.syntax unified
+ 147              		.thumb
+ 148              		.thumb_func
+ 150              	LEDShow:
+ 151              	.LVL9:
+ 152              	.LFB276:
+  36:modules/led/led.c **** 
+  37:modules/led/led.c **** void LEDShow(uint32_t aRGB)
+  38:modules/led/led.c **** {
+ 153              		.loc 1 38 1 is_stmt 1 view -0
+ 154              		.cfi_startproc
+ 155              		@ args = 0, pretend = 0, frame = 0
+ 156              		@ frame_needed = 0, uses_anonymous_args = 0
+ 157              		@ link register save eliminated.
+  39:modules/led/led.c ****     // static uint8_t alpha;
+  40:modules/led/led.c ****     // static uint16_t red, green, blue;
+  41:modules/led/led.c **** 
+  42:modules/led/led.c ****     // alpha = (aRGB & 0xFF000000) >> 24;
+  43:modules/led/led.c ****     // red = ((aRGB & 0x00FF0000) >> 16) * alpha;
+  44:modules/led/led.c ****     // green = ((aRGB & 0x0000FF00) >> 8) * alpha;
+  45:modules/led/led.c ****     // blue = ((aRGB & 0x000000FF) >> 0) * alpha;
+  46:modules/led/led.c **** }
+ 158              		.loc 1 46 1 view .LVU29
+ 159 0000 7047     		bx	lr
+ 160              		.cfi_endproc
+ 161              	.LFE276:
+ 163              		.section	.bss.bsp_led_ins,"aw",%nobits
+ 164              		.align	2
+ 165              		.set	.LANCHOR1,. + 0
+ 168              	bsp_led_ins:
+ 169 0000 00000000 		.space	12
+ 169      00000000 
+ 169      00000000 
+ 170              		.section	.bss.idx,"aw",%nobits
+ 171              		.set	.LANCHOR0,. + 0
+ 174              	idx:
+ 175 0000 00       		.space	1
+ 176              		.text
+ 177              	.Letext0:
+ 178              		.file 2 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\machine\\_default_types.h
+ 179              		.file 3 "c:\\installsoftware\\arm-gnu-toolchian\\arm-none-eabi\\include\\sys\\_stdint.h"
+ 180              		.file 4 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h"
+ 181              		.file 5 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h"
+ 182              		.file 6 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h"
+ 183              		.file 7 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h"
+ 184              		.file 8 "bsp/pwm/bsp_pwm.h"
+ 185              		.file 9 "modules/led/led.h"
+ 186              		.file 10 "modules/algorithm/user_lib.h"
+ARM GAS  C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s 			page 5
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 led.c
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:20     .text.LEDRegister:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:26     .text.LEDRegister:00000000 LEDRegister
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:84     .text.LEDRegister:0000002c $d
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:90     .text.LEDSet:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:96     .text.LEDSet:00000000 LEDSet
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:110    .text.LEDSwitch:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:116    .text.LEDSwitch:00000000 LEDSwitch
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:144    .text.LEDShow:00000000 $t
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:150    .text.LEDShow:00000000 LEDShow
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:164    .bss.bsp_led_ins:00000000 $d
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:168    .bss.bsp_led_ins:00000000 bsp_led_ins
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:174    .bss.idx:00000000 idx
+C:\Users\z0147233\AppData\Local\Temp\ccHTSZpZ.s:175    .bss.idx:00000000 $d
+
+UNDEFINED SYMBOLS
+zmalloc
+PWMRegister
